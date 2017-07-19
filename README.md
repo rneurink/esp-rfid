@@ -1,3 +1,17 @@
+# Based on the code omersiar wrote
+I've added a function to allow access at certain times at certain day's.
+
+New additions:
+- [X] Timed entry.
+
+Going to add:
+- [] Log entry on SD card.
+- [] Give access for a number of times.
+- [] Give access on specific dates.
+- [] Add valid untill. So someone can get access untill a certain date.
+- [] Give access between certain dates.
+
+
 # ESP RFID - Access Control with ESP8266, RC522
 Access Control demonstration using a cheap MFRC522 RFID Hardware and Espressif's ESP8266 Microcontroller.
 
