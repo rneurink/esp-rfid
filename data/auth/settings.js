@@ -1,15 +1,14 @@
 var websock;
 
 function listCONF(obj) {
-    document.getElementById("inputtohide").value = obj.ssid;
-    document.getElementById("wifipass").value = obj.pswd;
-    document.getElementById("gpioss").value = obj.sspin;
-    document.getElementById("gain").value = obj.rfidgain;
-    document.getElementById("gpiorly").value = obj.rpin;
-    document.getElementById("delay").value = obj.rtime;
-    if (obj.wmode === "1") {
-      document.getElementById("wmodeap").checked = true;
-    }
+	document.getElementById("adminpass").value = obj.auth_pass;
+	document.getElementById("hstname").value = obj.wifi_hostname;
+    document.getElementById("gain").value = obj.rfid_gain;
+    document.getElementById("delay").value = obj.relay_time;
+	document.getElementById("apssid").value = obj.ap_ssid;
+	document.getElementById("appass").value = obj.ap_pass;
+	document.getElementById("inputtohide").value = obj.sta_ssid;
+    document.getElementById("stapass").value = obj.sta_pass;
 }
 
 function listSSID(obj) {
@@ -42,28 +41,31 @@ function saveConf() {
     } else {
         ssid = document.getElementById("inputtohide").value;
     }
-    var wmode;
-    if (document.getElementById("wmodeap").checked) {
-      wmode = "1";
-    }
-    else {
-      wmode = "0";
-    }
     var datatosend = {};
     datatosend.command = "configfile";
-    datatosend.ssid = ssid;
-    datatosend.wmode = wmode;
-    datatosend.pswd = document.getElementById("wifipass").value;
-    datatosend.sspin = document.getElementById("gpioss").value;
-    datatosend.rfidgain = document.getElementById("gain").value;
-    datatosend.rpin = document.getElementById("gpiorly").value;
-    datatosend.rtime = document.getElementById("delay").value;
+	datatosend.auth_pass = document.getElementById("adminpass").value;
+	datatosend.wifi_hostname = document.getElementById("hstname").value;
+    datatosend.rfid_gain = document.getElementById("gain").value;
+    datatosend.relay_time = document.getElementById("delay").value;
+	datatosend.ap_ssid = document.getElementById("apssid").value;
+	datatosend.ap_pass = document.getElementById("appass").value;
+	datatosend.sta_ssid = ssid;
+    datatosend.sta_pass = document.getElementById("stapass").value;
     websock.send(JSON.stringify(datatosend));
-    location.reload();
+	location.reload();
 }
 
 function testRelay() {
     websock.send("{\"command\":\"testrelay\"}");
+}
+
+function clearLog() {
+	websock.send("{\command\":\"clearlog\"}");
+	var x = confirm("This will remove all logs. Are you sure?");
+    if (x) {
+        //var jsontosend = "{\"uid\":\"" + e.id + "\",\"command\":\"remove\"}";
+        //websock.send(jsontosend);
+    }
 }
 
 function start() {

@@ -81,7 +81,17 @@ function listSCAN(obj) {
     document.getElementById("typeinp").value = obj.type;
     document.getElementById("username").value = obj.user;
     document.getElementById("access").value = obj.access;
-    var ref = document.getElementById("button");
+	var ref = document.getElementById("buttonnormal");
+	if (obj.access == 2) {
+		ref.style.display = "none";
+		ref = document.getElementById("buttontimetable");
+		document.getElementById("timetablecol").style.display = "block";
+		parseTimeData(obj.timed);
+	}
+	else {
+		document.getElementById("timetablecol").style.display = "none";
+		clearTimeData();
+	}
     ref.style.display = "block";
     if (isKnown === 1) {
         ref.dep = uid;
@@ -99,6 +109,7 @@ function listSCAN(obj) {
         ref.textContent = "Add";
     }
     fadeOutIn(document.getElementById("fade"), 250);
+	fadeOutIn(document.getElementById("timetable"), 250);
 }
 
 function del(e) {
@@ -109,28 +120,13 @@ function del(e) {
     }
 }
 
-function tableupdate(e) {
-    var datatosend = {};
-    datatosend.command = "userfile";
-    datatosend.uid = e.dep;
-    datatosend.user = document.getElementById(e.dep).getElementsByTagName("td")[1].innerHTML;
-    var haveAcc;
-    if (document.getElementById(e.dep).getElementsByTagName("td")[2].getElementsByTagName("input")[0].checked) {
-        haveAcc = "1";
-    } else {
-        haveAcc = "0";
-    }
-    datatosend.haveAcc = haveAcc;
-    websock.send(JSON.stringify(datatosend));
-    websock.send("{\"command\":\"picclist\"}");
-}
-
 function update(e) {
     var datatosend = {};
     datatosend.command = "userfile";
     datatosend.uid = document.getElementById("uidinp").value.toLowerCase();
     datatosend.user = document.getElementById("username").value;
     datatosend.haveAcc = document.getElementById("access").value;
+	datatosend.timedAcc = getTimeString();
     websock.send(JSON.stringify(datatosend));
     websock.send("{\"command\":\"picclist\"}");
 }
@@ -146,12 +142,20 @@ function addRowHandlers() {
                     document.getElementById("uidinp").value = row.getElementsByTagName("td")[0].innerHTML;
                     document.getElementById("username").value = row.getElementsByTagName("td")[1].innerHTML;
                     document.getElementById("typeinp").value = "";
-                    if (row.getElementsByTagName("td")[2].getElementsByTagName("input")[0].checked) {
+                    if (row.getElementsByTagName("td")[2].innerHTML == "Infinite") {
                         document.getElementById("access").value = "1";
-                    } else {
+						document.getElementById("timetablecol").style.display = "none";
+                    } else if (row.getElementsByTagName("td")[2].innerHTML == "No access"){
                         document.getElementById("access").value = "0";
-                    }
-                    var ref = document.getElementById("button");
+						document.getElementById("timetablecol").style.display = "none";
+                    } else if (row.getElementsByTagName("td")[2].innerHTML == "Timed") {
+						document.getElementById("access").value = "2";
+						document.getElementById("timetablecol").style.display = "block";
+						if (document.getElementById("buttonnormal").style.display == "block") document.getElementById("buttonnormal").style.display = "none";
+						parseTimeData(row.getElementsByTagName("td")[3].innerHTML);
+					}
+                    var ref = document.getElementById("buttonnormal");
+					if (document.getElementById("access").value == 2) ref = document.getElementById("buttontimetable");
                     ref.style.display = "block";
                     ref.dep = document.getElementById("uidinp").value.toLowerCase();
                     ref.className = "btn btn-warning btn-sm";
@@ -179,22 +183,175 @@ function listknownPICC(obj) {
         var cell2 = row.insertCell(1);
         cell2.innerHTML = obj.users[i];
         var cell3 = row.insertCell(2);
-        var inp2 = document.createElement("input");
-        inp2.type = "checkbox";
-        inp2.id = x + "C";
-        inp2.dep = x;
-        inp2.onclick = function() {
-            tableupdate(this);
-        };
-        if (obj.access[i] === 1) {
+        switch(obj.access[i]){
+			case 0:
+				cell3.innerHTML = "No access";
+				break;
+			case 1:
+				cell3.innerHTML = "Infinite";
+				break;
+			case 2:
+				cell3.innerHTML = "Timed";
+				break;
+		}
+		var cell4 = row.insertCell(3);
+		cell4.innerHTML = obj.timed[i];
+		cell4.style.display = "none";
+        if (obj.access[i] == 1) {
             row.className = "success";
-            inp2.checked = true;
-        } else {
+        } else if (obj.access[i] == 0) {
             row.className = "warning";
-            inp2.checked = false;
-        }
-        cell3.appendChild(inp2);
+        } else if (obj.access[i] == 2) {
+			row.className = "info";
+		}
     }
+}
+
+function showTimeMenu() {
+	var value = document.getElementById("access").value;
+	if (value == 2) {
+		var ref = document.getElementById("timetablecol");
+		ref.style.display = "block";
+		if (document.getElementById("buttonnormal").style.display == "block") {
+			var but = document.getElementById("buttontimetable");
+			var butref = document.getElementById("buttonnormal");
+			but.style.display = "block";
+			but.dep = butref.dep;
+			but.className = butref.className;
+			but.onclick = function() {
+				update(this);
+			};
+			but.textContent = butref.textContent;
+			butref.style.display = "none";
+		}
+	}
+	else {
+		var ref = document.getElementById("timetablecol");
+		ref.style.display = "none";
+		if (document.getElementById("buttontimetable").style.display == "block") {
+			var but = document.getElementById("buttonnormal");
+			var butref = document.getElementById("buttontimetable");
+			but.style.display = "block";
+			but.dep = butref.dep;
+			but.className = butref.className;
+			but.onclick = function() {
+				update(this);
+			};
+			but.textContent = butref.textContent;
+			butref.style.display = "none";
+		}
+	}
+}
+
+function checkTimeFormat() {
+	var timeInputs = ["fromSunday","untillSunday","fromMonday","untillMonday","fromTuesday","untillTuesday","fromWednesday","untillWednesday","fromThursday","untillThursday","fromFriday","untillFriday","fromSaturday","untillSaturday"];
+	for (var i = 0; i < timeInputs.length; i++)
+	{
+		var ref = document.getElementById(timeInputs[i]);
+		var refval = ref.value;
+		if (refval.length == 5) return;
+		if (refval.charAt(2) == ":") {
+		  var replacement = "0" + refval.substr(3,1);
+			refval = refval.slice(0,-1);
+			refval += replacement;
+		} else if (refval.charAt(1) == ":") {
+			var replacement = "0" + refval.substr(0,1);
+			var tempstring = refval.substr(1,3);
+			refval = replacement + tempstring;
+		}
+		ref.value = refval;
+		if (refval.length == 4) i--;
+	}
+}
+
+function checkTimeValue() {
+	var timeInputs = ["fromSunday","untillSunday","fromMonday","untillMonday","fromTuesday","untillTuesday","fromWednesday","untillWednesday","fromThursday","untillThursday","fromFriday","untillFriday","fromSaturday","untillSaturday"];
+	for (var i = 0; i < timeInputs.length; i += 2) {
+		var ref1 = document.getElementById(timeInputs[i]);
+		var ref2 = document.getElementById(timeInputs[i+1]);
+		if ((parseInt(ref1.value.substr(0,2)) > parseInt(ref2.value.substr(0,2))) || (parseInt(ref1.value.substr(0,2)) == parseInt(ref2.value.substr(0,2)) && parseInt(ref1.value.substr(3,2)) > parseInt(ref2.value.substr(3,2)))) {
+			var temp = ref1.value;
+			ref1.value = ref2.value;
+			ref2.value = temp;
+		}
+	}
+}
+
+function clearTimeData() {
+	var timeInputs = ["checkSunday","fromSunday","untillSunday","checkMonday","fromMonday","untillMonday","checkTuesday","fromTuesday","untillTuesday","checkWednesday","fromWednesday","untillWednesday","checkThursday","fromThursday","untillThursday","checkFriday","fromFriday","untillFriday","checkSaturday","fromSaturday","untillSaturday"];
+	for (var i = 0; i < timeInputs.length; i += 3) {
+		document.getElementById(timeInputs[i]).checked = false;
+		document.getElementById(timeInputs[i+1]).value = "";
+		document.getElementById(timeInputs[i+2]).value = "";
+	}
+}
+
+function parseTimeData(str)
+{
+	var timearr = str.split(" ");
+	clearTimeData();
+	for (var i = 0; i < timearr.length; i ++) {
+		switch(parseInt(timearr[i].charAt(0))) {
+			case 0:
+				document.getElementById("checkSunday").checked = true;
+				document.getElementById("fromSunday").value = timearr[i].substr(2,5);
+				document.getElementById("untillSunday").value = timearr[i].substr(8,5);
+				break;
+			case 1:
+				document.getElementById("checkMonday").checked = true;
+				document.getElementById("fromMonday").value = timearr[i].substr(2,5);
+				document.getElementById("untillMonday").value = timearr[i].substr(8,5);
+				break;
+			case 2:
+				document.getElementById("checkTuesday").checked = true;
+				document.getElementById("fromTuesday").value = timearr[i].substr(2,5);
+				document.getElementById("untillTuesday").value = timearr[i].substr(8,5);
+				break;
+			case 3:
+				document.getElementById("checkWednesday").checked = true;
+				document.getElementById("fromWednesday").value = timearr[i].substr(2,5);
+				document.getElementById("untillWednesday").value = timearr[i].substr(8,5);
+				break;
+			case 4:
+				document.getElementById("checkThursday").checked = true;
+				document.getElementById("fromThursday").value = timearr[i].substr(2,5);
+				document.getElementById("untillThursday").value = timearr[i].substr(8,5);
+				break;
+			case 5:
+				document.getElementById("checkFriday").checked = true;
+				document.getElementById("fromFriday").value = timearr[i].substr(2,5);
+				document.getElementById("untillFriday").value = timearr[i].substr(8,5);
+				break;
+			case 6:
+				document.getElementById("checkSaturday").checked = true;
+				document.getElementById("fromSaturday").value = timearr[i].substr(2,5);
+				document.getElementById("untillSaturday").value = timearr[i].substr(8,5);
+				break;
+			default:
+				break;
+		}
+	}
+}
+
+function getTimeString() {
+	checkTimeFormat();
+	checkTimeValue();
+	var timeInputs = ["checkSunday","fromSunday","untillSunday","checkMonday","fromMonday","untillMonday","checkTuesday","fromTuesday","untillTuesday","checkWednesday","fromWednesday","untillWednesday","checkThursday","fromThursday","untillThursday","checkFriday","fromFriday","untillFriday","checkSaturday","fromSaturday","untillSaturday"];
+	var timeString = "";
+	for (var i = 0; i < timeInputs.length; i += 3) {
+	  if (document.getElementById(timeInputs[i]).checked) {
+	    var ref1 = document.getElementById(timeInputs[i+1]);
+			var ref2 = document.getElementById(timeInputs[i+2]);
+	    timeString += ((i/3)+"_")
+	    if (ref1.value == "") timeString += ("00:00-");
+	    else timeString += (document.getElementById(timeInputs[i+1]).value + "-");
+			if (ref2.value == "") timeString += ("24:00 ");
+	    else timeString += (document.getElementById(timeInputs[i+2]).value + " ");
+	  }
+	}
+	timeString = timeString.slice(0, -1); 
+	parseTimeData(timeString);
+	return timeString;
 }
 
 function start() {

@@ -1,0 +1,11 @@
+{
+	"command":"configfile",
+	"auth_pass": "admin",
+	"wifi_hostname": "ESP-RFID",
+	"rfid_gain":"96",
+	"relay_time":"200",
+	"ap_ssid": "ESP-RFID",
+	"ap_pass": "RFIDConfig",
+	"sta_ssid": "None",
+	"sta_pass": "None"
+}
