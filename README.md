@@ -5,11 +5,11 @@ New additions:
 - [X] Timed entry.
 
 Going to add:
-- [] Log entry on SD card.
-- [] Give access for a number of times.
-- [] Give access on specific dates.
-- [] Add valid untill. So someone can get access untill a certain date.
-- [] Give access between certain dates.
+- [ ] Log entry on SD card.
+- [ ] Give access for a number of times.
+- [ ] Give access on specific dates.
+- [ ] Add valid untill. So someone can get access untill a certain date.
+- [ ] Give access between certain dates.
 
 
 # ESP RFID - Access Control with ESP8266, RC522
