@@ -59,6 +59,7 @@ function saveConf() {
     datatosend.rpin = document.getElementById("gpiorly").value;
     datatosend.rtime = document.getElementById("delay").value;
     websock.send(JSON.stringify(datatosend));
+    location.reload();
 }
 
 function testRelay() {
