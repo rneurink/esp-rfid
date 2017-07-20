@@ -11,6 +11,7 @@ Going to add:
 - [ ] Add valid untill. So someone can get access untill a certain date.
 - [ ] Give access between certain dates.
 
+[![Chat at https://gitter.im/esp-rfid/Lobby](https://badges.gitter.im/esp-rfid.svg)](https://gitter.im/esp-rfid/Lobby)
 
 # ESP RFID - Access Control with ESP8266, RC522
 Access Control demonstration using a cheap MFRC522 RFID Hardware and Espressif's ESP8266 Microcontroller.
