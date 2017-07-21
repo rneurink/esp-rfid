@@ -360,6 +360,7 @@ function start() {
         websock.send("{\"command\":\"picclist\"}");
     };
     websock.onclose = function(evt) {
+		setTimeout(function(){start()}, 5000);
     };
     websock.onerror = function(evt) {
         console.log(evt);

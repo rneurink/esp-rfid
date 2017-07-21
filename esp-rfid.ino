@@ -13,6 +13,7 @@
 /* ------------------ Includes ------------------------- */
 #include <ESP8266WiFi.h>		// Base of the whole project
 #include <ESP8266mDNS.h>        // Zero-config Library (Bonjour, Avahi) http://esp-rfid.local
+#include <DNSServer.h>			// Used for captive portal
 #include <WiFiUdp.h>            // Library for manipulating UDP packets which is used by NTP Client to get Timestamps
 #include <NTPClient.h>          // To timestamp RFID scans we get Unix Time from NTP Server
 #include <SPI.h>				// SPI library to communicate with the peripherals as well as SPIFFS
@@ -41,6 +42,8 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 AsyncEventSource events("/events");
 
+DNSServer dnsServer;
+
 // Create UDP instance for NTP Client
 WiFiUDP ntpUDP;
 
@@ -51,11 +54,17 @@ NTPClient timeClient(ntpUDP);
 String admin_pass;
 const char *auth_pass;
 
+const byte DNS_PORT = 53;
+IPAddress apIP(192, 168, 4, 1);
+
 // Variables for whole scope
 String filename = "/P/";
 //flag to use from web update to reboot the ESP
 bool shouldReboot = false;
 
+int timeZone = 2; //UTC +2 is my timeZone. Adjust to your timezone
+
+bool inAPMode = false;
 bool SDAvailable = false;
 bool SDMutex = false;
 bool denyAcc = false;
@@ -72,7 +81,7 @@ extern "C" uint32_t _SPIFFS_end;
 void setup() {
 	Serial.begin(115200);    // Initialize serial communications
 	Serial.println();
-  	Serial.println(F("[ INFO ] ESP RFID v0.1"));
+  	Serial.println(F("[ INFO ] ESP RFID v0.2"));
 
   	// Start SPIFFS filesystem
   	SPIFFS.begin();
@@ -86,10 +95,9 @@ void setup() {
   	else Serial.println(F("[ WARN ] Failed to load configuration"));
 
   	// Start NTP Client
-  	timeClient.setTimeOffset(2 * 3600); //Timezone offset
+  	timeClient.setTimeOffset(timeZone * 3600); //Timezone offset
   	timeClient.begin();
 
-	setupWebserver();
 	if (!SD.begin(SD_SS)) {
 		SDAvailable = false;
 		Serial.println(F("[ INFO ] SD Card failed to connect or not present"));
@@ -98,6 +106,7 @@ void setup() {
 		SDAvailable = true;
 		Serial.println(F("[ INFO ] SD Card initialized"));
 	}
+
 	turnOnLed(blueLed);  	
 }
 
@@ -109,6 +118,14 @@ void loop() {
 		delay(100);
 		ESP.restart();
 	}
+
+	dnsServer.processNextRequest();
+
+	if (!inAPMode) {
+		// Get Time from NTP Server
+		timeClient.update();
+	}
+
 	unsigned long currentMillis = millis();
 	if (currentMillis - previousMillis >= activateTime && activateRelay) {
 		activateRelay = false;
@@ -123,11 +140,9 @@ void loop() {
 		turnOnLed(greedLed);
 		digitalWrite(relayPin, HIGH);
 	}
-	// Get Time from NTP Server
-	timeClient.update();
 
 	// Another loop for RFID Events, since we are using polling method instead of Interrupt we need to check RFID hardware for events
-	rfidloop();
+	rfidloop();	
 }
 
 /* ------------------ RFID Functions ------------------- */
@@ -138,7 +153,7 @@ void rfidloop() {
     	delay(50);
     	return;
   	}
-  	//Since a PICC placed get Serial (UID) and continue
+  	//Since a PICC is placed get Serial (UID) and continue
   	if ( ! mfrc522.PICC_ReadCardSerial()) {
     	delay(50);
     	return;
@@ -198,6 +213,8 @@ void rfidloop() {
 			}
 			else if (haveAcc == 2) {
 				//Check timed access
+				// 0:sunday, 1:monday etc
+				//Format: (0_12:00-24:00 1_08:00-16:00)
         		const char* timedAccessBuffer = json["timedAcc"];
 				timedAccess = String(timedAccessBuffer);
 				int dayCount = (timedAccess.length()/13);
@@ -223,7 +240,7 @@ void rfidloop() {
 					int currentHour = timeClient.getHours(), currentMinute = timeClient.getMinutes();
 					if ((fromTime.substring(0,2).toInt()) < currentHour && (untillTime.substring(0,2).toInt()) > currentHour) allowAccess(); //Within the hours
 					else if ((fromTime.substring(0,2).toInt()) == currentHour && (fromTime.substring(3).toInt()) < currentMinute) allowAccess(); //Same hour as from time check the minutes
-					else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) allowAccess(); //Same hour as to time check the minutes
+					else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) allowAccess(); //Same hour as untill time check the minutes
 					else denyAccess();
 				}
 				else {
@@ -249,9 +266,6 @@ void rfidloop() {
 			// Timed access
 			if (haveAcc == 2) root["timed"] = timedAccess;
 			else root["timed"] = "";
-			//TODO: add time schedule
-			// 0:sunday, 1:monday etc
-			//Format: (0_12:00-26:00 1_08:00-16:00)
 			size_t len = root.measureLength();
 			AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
 			if (buffer) {
@@ -372,13 +386,44 @@ bool connectSTA(const char* sta_ssid, const char* sta_pass) {
 bool setupAP(const char* ap_ssid, const char* ap_pass) {
   	WiFi.mode(WIFI_AP);
   	Serial.print(F("[ INFO ] Configuring access point... "));
+  	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   	bool result = WiFi.softAP(ap_ssid, ap_pass);
   	Serial.println(result ? "Ready" : "Failed!");
   	// Access Point IP
   	IPAddress myIP = WiFi.softAPIP();
+  	inAPMode = true;
   	Serial.print(F("[ INFO ] AP IP address: "));
   	Serial.println(myIP);
   	return result;
+}
+
+boolean captivePortal(AsyncWebServerRequest *request) {
+  	if (!isIp(request->host()) ) {
+  		AsyncWebServerResponse *response = request->beginResponse(302,"text/plain","");
+    	response->addHeader("Location", String("http://" + ipToString(apIP)));
+    	request->send(response);
+    	return true;
+  	}
+  	return false;
+}
+
+boolean isIp(String str) {
+  	for (int i = 0; i < str.length(); i++) {
+    	int c = str.charAt(i);
+    	if (c != '.' && (c < '0' || c > '9')) {
+      		return false;
+    	}
+  	}
+  	return true;
+}
+
+String ipToString(IPAddress ip) {
+  String res = "";
+  for (int i = 0; i < 3; i++) {
+    res += String((ip >> (8 * i)) & 0xFF) + ".";
+  }
+  res += String(((ip >> 8 * 3)) & 0xFF);
+  return res;
 }
 
 /* ------------------ SPIFFS Functions ----------------- */
@@ -422,7 +467,10 @@ bool loadConfiguration() {
   	
   	setupRFID(MFRC522_SS,UINT8_MAX,rfidgain);
 
+  	setupWebserver();
+
   	WiFi.hostname(wifi_hostname);
+  	
   	if (!connectSTA(sta_ssid, sta_pass)){ // If unable to connect to WiFi setup Access point
   		if (!setupAP(ap_ssid, ap_pass)) return false;
   	}
@@ -443,6 +491,9 @@ void setupWebserver(){
   	server.addHandler(&ws);
   	ws.onEvent(onWsEvent);
 
+  	//Setting up dns for the captive portal
+  	dnsServer.start(53, "*", apIP);
+
   	// Configure web server
   	// Add Text Editor (http://esp-rfid.local/edit) to Web Server. This feature likely will be dropped on final release.
   	server.addHandler(new SPIFFSEditor("admin", admin_pass));
@@ -452,9 +503,6 @@ void setupWebserver(){
   	// Serve all files in root folder
  	server.serveStatic("/", SPIFFS, "/");
   	// Handle what happens when requested web file couldn't be found
-  	server.onNotFound([](AsyncWebServerRequest * request) {
-    	request->send(404);
-  	});
 
   	// Simple Firmware Update Handler
   	server.on("/auth/update", HTTP_POST, [](AsyncWebServerRequest * request) {
@@ -512,6 +560,31 @@ void setupWebserver(){
 	    }
 	}
 	});
+
+  	server.onNotFound([](AsyncWebServerRequest *request) {
+    	if (captivePortal(request)) { // If captive portal redirect instead of displaying the error page.
+    		return;
+  		}
+  
+  		String message = "File Not Found\n\n";
+  		message += "URI: ";
+  		message += request->url();
+  		message += "\nMethod: ";
+  		message += ( request->method() == HTTP_GET ) ? "GET" : "POST";
+  		message += "\nArguments: ";
+  		message += request->args();
+  		message += "\n";
+
+	  	for (uint8_t i = 0; i < request->args(); i++ ) {
+	    	message += " " + request->argName ( i ) + ": " + request->arg ( i ) + "\n";
+	  	}
+	  	
+	  	AsyncWebServerResponse *response = request->beginResponse(404,"text/plain",message);
+	  	response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+	  	response->addHeader("Pragma", "no-cache");
+	  	response->addHeader("Expires", "-1");
+	  	request->send(response); 
+    });
 
   	// Start Web Server
   	server.begin();
@@ -660,7 +733,7 @@ void printScanResult(int networksFound) {
 	WiFi.scanDelete();
 }
 
-/* ------------------ Logging Functions ---------------- */
+/* ------------------ Date and Time Functions ---------- */
 String getDateTime() {
 	unsigned long epochTime = timeClient.getEpochTime();
 	uint8_t dateMonth = month(epochTime);
@@ -686,6 +759,7 @@ String getDate() {
 	return dateTime;
 }
 
+/* ------------------ Logging Functions ---------------- */
 bool createLog(String dataString, String filename) {
 	if (!SDAvailable) return false;
 	if (SDMutex) waitForMutex();

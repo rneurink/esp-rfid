@@ -74,6 +74,7 @@ function start() {
         websock.send("{\"command\":\"getconf\"}");
     };
     websock.onclose = function(evt) {
+		setTimeout(function(){start()}, 5000);
     };
     websock.onerror = function(evt) {
         console.log(evt);
