@@ -3,13 +3,12 @@ I've added a function to allow access at certain times at certain day's.
 
 New additions:
 - [X] Timed entry.
+- [X] Added captive portal.
 
 Going to add:
 - [ ] Log entry on SD card.
-- [ ] Give access for a number of times.
-- [ ] Give access on specific dates.
+- [ ] Give access between specific day's.
 - [ ] Add valid untill. So someone can get access untill a certain date.
-- [ ] Give access between certain dates.
 
 [![Chat at https://gitter.im/esp-rfid/Lobby](https://badges.gitter.im/esp-rfid.svg)](https://gitter.im/esp-rfid/Lobby)
 
