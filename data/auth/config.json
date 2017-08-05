@@ -7,5 +7,6 @@
 	"ap_ssid": "ESP-RFID",
 	"ap_pass": "RFIDConfig",
 	"sta_ssid": "None",
-	"sta_pass": "None"
+	"sta_pass": "None",
+	"wifimode": "0"
 }

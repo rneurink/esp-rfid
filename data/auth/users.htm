@@ -51,7 +51,7 @@
                 </div>
                 <div class="col-sm-6 col-sm-pull-6">
                     <legend>Add / Update User</legend>
-                    <p style="font-size:12px;" class="text-muted">Scan a PICC (RFID Tag) or choose from the list.</p>
+                    <h6 class="text-muted">Scan a PICC (RFID Tag) or choose from the list.</h6>
                     <form id="fade">
                         <div class="input-group">
                             <span class="input-group-addon" style="text-align:left;min-width:100px"><strong>UID</strong></span>
@@ -74,9 +74,9 @@
                             </select>
                         </div>
 						<br>
-                    <div>
-                        <button id="buttonnormal" type="button" style="display:none" class="btn btn-sm" onclick=""></button>
-                        <img id="load" style="display:none" src="/load.gif">
+					<div class="btn-group">
+                        <button id="buttonnormal" type="button" style="display:none" class="btn btn-success btn-sm" onclick="update()">Add</button>
+						<button id="rembuttonnormal" type="button" style="display:none" class="btn btn-danger btn-sm" onclick="del()">Remove</button>
                     </div>
                     </form>
                 </div>
@@ -208,16 +208,16 @@
                         </table>
                     </div>
 					<br>
-                    <div>
-                        <button id="buttontimetable" type="button" style="display:none" class="btn btn-sm" onclick=""></button>
-                        <img id="load" style="display:none" src="/load.gif">
+                    <div class="btn-group">
+						<button id="buttontimetable" type="button" style="display:none" class="btn btn-success btn-sm" onclick="update()">Add</button>
+						<button id="rembuttontimetable" type="button" style="display:none" class="btn btn-danger btn-sm" onclick="del()">Remove</button>
                     </div>
 				</div>
             </div>
         </div>
         <hr>
         <footer>
-            <p>&copy; 2017 Neurink software</p>
+            <h6 class="text-muted">ESP RFID - This is a <a href="https://github.com/omersiar/esp-rfid/blob/master/LICENSE">free</a> software</h6>
         </footer>
     </div>
 </body>

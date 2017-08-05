@@ -25,53 +25,15 @@
             <h3 class="text-muted">ESP RFID</h3>
         </div>
         <div class="jumbotron">
-            <div class="alert alert-warning"> <strong>Warning!</strong> Saving settings will cause the device to reboot. </div>
+            <div class="alert alert-warning"> <strong>Warning!</strong> Settings will take effect when the device is rebooted. </div>
             <div id="loading-img" class="text-center">
                 <img src="/load.gif">
                 <h5>Please wait while WebSocket is connecting...</h5>
                 <br>
             </div>
             <div class="row">
-                <div class="col-sm-6 col-sm-push-6">
-                    <fieldset>
-                        <legend>Wi-Fi Client Settings</legend>
-                        <h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
-                        <br>
-                        <div class="row form-group">
-                            <label class="col-xs-3">SSID</label>
-                            <span class="col-xs-9">
-                                <input class="form-control input-sm" style="display:inline;max-width:150px" id="inputtohide" type="text" name="sta_ssid">
-                                <select class="form-control input-sm" style="display:none;max-width:150px" id="ssid"></select>
-                                <button id="scanb" type="button" class="btn btn-primary btn-xs" onclick="scanWifi()">Scan</button>
-                            </span>
-                        </div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Password</label>
-                            <span class="col-xs-9">
-                                <input id="stapass" style="max-width:150px" class="form-control input-sm" type="text" name="sta_passwd">
-                            </span>
-                        </div>
-						<br>
-                        <legend>Access Point Settings</legend>
-                        <h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
-                        <br>
-                        <div class="row form-group">
-                            <label class="col-xs-3">SSID</label>
-                            <span class="col-xs-9">
-                                <input id="apssid" style="max-width:150px" class="form-control input-sm" type="text" name="ap_ssid">
-                            </span>
-                        </div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Password</label>
-                            <span class="col-xs-9">
-                                <input id="appass" style="max-width:150px" class="form-control input-sm" type="text" name="ap_passwd">
-                            </span>
-                        </div>
-                    </fieldset>
-                    <br>
-                </div>
-                <div class="col-sm-6 col-sm-pull-6">
-                    <fieldset>
+				<div class="col-sm-6">
+                    <div>
                         <legend>General Settings</legend>
                         <h6 class="text-muted">Type your access password and device name.</h6>
                         <br>
@@ -110,25 +72,167 @@
                                 <input class="form-control input-sm" placeholder="in Microseconds" style="display:inline;max-width:185px" id="delay" type="text" name="hightime">
                             </span>
                         </div>
-                        <button id="testb" type="button" class="btn btn-primary btn-xs" onclick="testRelay()">Test Relay</button><h6 class="text-muted"> Please reboot before testing</h6>
-                    </fieldset>
+                        <button id="testb" type="button" class="btn btn-primary btn-xs" onclick="testRelay()">Test Relay</button>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div>
+                        <legend>Wi-Fi Client Settings</legend>
+                        <h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
+                        <br>
+						<div class="row form-group">
+							<label class="col-xs-3">Wi-Fi Mode</label>
+							<div class="col-xs-9">
+							<form>
+								<label class="radio-inline"><input type="radio" value="1" name="wifimode" id="wifimodeap">Access Point </label>
+								<label class="radio-inline"><input type="radio" value="0" name="wifimode" id="wifimodesta" checked>Client</label>
+							</form>
+							</div>
+						</div>
+                        <div class="row form-group">
+                            <label class="col-xs-3">SSID</label>
+                            <span class="col-xs-9">
+                                <input class="form-control input-sm" style="display:inline;max-width:150px" id="stassid" type="text" name="sta_ssid">
+                                <select class="form-control input-sm" style="display:none;max-width:150px" id="ssid"></select>
+                                <button id="scanb" type="button" class="btn btn-primary btn-xs" onclick="scanWifi()">Scan</button>
+                            </span>
+                        </div>
+                        <div class="row form-group">
+                            <label class="col-xs-3">Password</label>
+                            <span class="col-xs-9">
+                                <input id="stapass" style="max-width:150px" class="form-control input-sm" type="text" name="sta_passwd">
+                            </span>
+                        </div>
+						<br>
+                        <legend>Access Point Settings</legend>
+                        <h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
+                        <br>
+                        <div class="row form-group">
+                            <label class="col-xs-3">SSID</label>
+                            <span class="col-xs-9">
+                                <input id="apssid" style="max-width:150px" class="form-control input-sm" type="text" name="ap_ssid">
+                            </span>
+                        </div>
+                        <div class="row form-group">
+                            <label class="col-xs-3">Password</label>
+                            <span class="col-xs-9">
+                                <input id="appass" style="max-width:150px" class="form-control input-sm" type="text" name="ap_passwd">
+                            </span>
+                        </div>
+                    </div>
+                    <br>
                 </div>
             </div>
             <hr>
             <div>
+				<button id="refstat" onclick="refreshStats()" class="btn btn-warning btn-xs">Show Statics</button>
                 <button onclick="saveConf()" class="btn btn-primary btn-sm pull-right">Save & Reboot</button>
             </div>
             <br>
         </div>
+		<div id="status" class="jumbotron" style="display:none">
+			<div class="row">
+				<div class="col-sm-6"><legend>Device Statics</legend></div>
+			</div>
+            <div class="row">
+			<div class="col-sm-6">
+				<div class="panel panel-default table-responsive">
+                <table class="table table-hover table-striped">
+                <caption>Device</caption>
+				<tr>
+					<th>Chip ID</th>
+					<td id="chip"></td>
+				</tr>
+				<tr>
+					<th>CPU Clock</th>
+					<td id="cpu"></td>
+				</tr>
+				<tr>
+					<th>Free Heap</th>
+					<td>
+					<div class="progress progress-striped" style="margin-bottom: 0 !important;">
+						<div id="heap" class="progress-bar progress-bar-warning" role="progressbar">
+							Progress
+						</div>
+					</div>
+					</td>
+				</tr>
+				<tr>
+					<th>Free Flash</th>
+					<td>			
+					<div class='progress progress-striped' style="margin-bottom: 0 !important;">
+						<div id="flash" class="progress-bar progress-bar-warning" role="progressbar">
+							Progress
+						</div>
+					</div></td>
+				</tr>
+				</table>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="panel panel-default table-responsive">					<table class="table table-hover table-striped">
+					<caption>Network</caption>
+					<tr>
+						<th>SSID</th>
+						<td id="ssidstat"></td>
+					</tr>
+					<tr>
+						<th>IP</th>
+						<td id="ip"></td>
+					</tr>
+					<tr>
+						<th>Gateway</th>
+						<td id="gate"></td>
+					</tr>
+					<tr>
+						<th>Mask</th>
+						<td id="mask"></td>
+					</tr>
+					<tr>
+						<th>DNS</th>
+						<td id="dns"></td>
+					</tr>
+					<tr>
+						<th>MAC</th>
+						<td id="mac"></td>
+					</tr>
+					</table>
+				</div>
+			</div>
+			</div>
+		</div>
         <div class="jumbotron">
             <div class="row">
-                <fieldset class="col-sm-6">
+				<div class="col-sm-6">
+                  <legend>Backup</legend>
+                  <h6 class="text-muted">Please make sure that you have made a backup before updating the firmware.</h6>
+                  <div>
+                     <button class="btn btn-link btn-sm" onclick="backupuser()">Backup User Data</button>
+                     <a id="downloadUser" style="display:none"></a>
+                     <button class="btn btn-link btn-sm" onclick="backupset()">Backup Settings</button>
+                     <a id="downloadSet" style="display:none"></a>
+                  </div>
+                  <br>
+                  <div>
+                     <legend>Restore</legend>
+                     <h6 class="text-muted">Click on links and choose your backup file to restore.</h6>
+                     <label for="restoreUser" class="btn btn-link btn-sm">Restore User Data</label>
+                     <input id="restoreUser" type="file" accept="text/json" onchange="restoreUser()" style="display:none;">
+                     <label for="restoreSet" class="btn btn-link btn-sm">Restore Settings</label>
+                     <input id="restoreSet" type="file" accept="text/json" onchange="restoreSet()" style="display:none;">
+                  </div>
+                  <br>
+                  <div id="pbar" class="progress" style="display:none">
+                     <div id="dynamic" class="progress-bar progress-bar-success progress-bar-striped">Restoring...</div>
+                  </div>
+               </div>
+                <div class="col-sm-6">
                     <legend>Clear Log</legend>
                     <div class="alert alert-danger"><strong>Warning!</strong> This will delete all logs.</div>
                     <button id="clearlog" type="button" class="btn btn-primary btn-xs" onclick="clearLog()">Clear Log</button>
-                </fieldset>
+                </div>
 				<br>
-                <fieldset class="col-sm-6">
+                <div class="col-sm-6">
                     <legend>Update Firmware</legend>
                     <form class="form-inline" method="POST" action="/auth/update" enctype="multipart/form-data">
                         <div class="form-group">
@@ -146,12 +250,12 @@
                         <button type="submit" class="btn btn-primary btn-sm">Upload</button>
                     </form>
                     <br>
-                </fieldset>
+                </div>
             </div>
         </div>
         <hr>
         <footer>
-            <p>&copy; 2017 Neurink software</p>
+            <h6 class="text-muted">ESP RFID - This is a <a href="https://github.com/omersiar/esp-rfid/blob/master/LICENSE">free</a> software</h6>
         </footer>
     </div>
 </body>

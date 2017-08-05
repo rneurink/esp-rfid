@@ -96,7 +96,8 @@ void setup() {
 
   	// Start NTP Client
   	timeClient.setTimeOffset(timeZone * 3600); //Timezone offset
-  	timeClient.begin();
+  	if (WiFi.status() == WL_CONNECTED)
+  		timeClient.begin();
 
 	if (!SD.begin(SD_SS)) {
 		SDAvailable = false;
@@ -121,7 +122,7 @@ void loop() {
 
 	dnsServer.processNextRequest();
 
-	if (!inAPMode) {
+	if (WiFi.status() == WL_CONNECTED) {
 		// Get Time from NTP Server
 		timeClient.update();
 	}
@@ -385,9 +386,12 @@ bool connectSTA(const char* sta_ssid, const char* sta_pass) {
 // Fallback to AP Mode, so we can connect to ESP if there is no Internet connection
 bool setupAP(const char* ap_ssid, const char* ap_pass) {
   	WiFi.mode(WIFI_AP);
-  	Serial.print(F("[ INFO ] Configuring access point... "));
-  	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-  	bool result = WiFi.softAP(ap_ssid, ap_pass);
+  	Serial.println(F("[ INFO ] Configuring access point... "));
+  	bool result = WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  	Serial.print(F("[ INFO ] Captive portal setup: "));
+  	Serial.println(result ? "Ready" : "Failed!");
+  	Serial.print(F("[ INFO ] Setting up access point: "));
+  	result = WiFi.softAP(ap_ssid, ap_pass);
   	Serial.println(result ? "Ready" : "Failed!");
   	// Access Point IP
   	IPAddress myIP = WiFi.softAPIP();
@@ -458,6 +462,7 @@ bool loadConfiguration() {
   	const char *ap_pass = json["ap_pass"];
   	const char *sta_ssid = json["sta_ssid"];
   	const char *sta_pass = json["sta_pass"];
+  	int wifimode = json["wifimode"];
 
   	//Hardware variables
   	int rfidgain = json["rfid_gain"];
@@ -471,9 +476,15 @@ bool loadConfiguration() {
 
   	WiFi.hostname(wifi_hostname);
   	
-  	if (!connectSTA(sta_ssid, sta_pass)){ // If unable to connect to WiFi setup Access point
-  		if (!setupAP(ap_ssid, ap_pass)) return false;
-  	}
+  	if (wifimode == 1) {
+    	Serial.println(F("[ INFO ] ESP-RFID is running in AP Mode "));
+    	if (!setupAP(ap_ssid, ap_pass)) return false;
+    }
+    else {
+    	if (!connectSTA(sta_ssid, sta_pass)){ // If unable to connect to WiFi setup Access point
+  			if (!setupAP(ap_ssid, ap_pass)) return false;
+  		}
+    }
 
   	// Start mDNS service so we can connect to http://esp-rfid.local (if Bonjour installed on Windows or Avahi on Linux)
   	if (!MDNS.begin(wifi_hostname)) {
@@ -626,12 +637,16 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         	fs::File f = SPIFFS.open("/auth/config.json", "w+");
         	if (f) {
           		f.print(msg);
+          		root.prettyPrintTo(f);
           		f.close();
           		ESP.reset();
         	}
       	}
       	else if (strcmp(command, "picclist")  == 0) {
         	sendPICClist();
+      	}
+      	else if (strcmp(command, "status")  == 0) {
+        	sendStatus();
       	}
       	else if (strcmp(command, "userfile")  == 0) {
         	const char* uid = root["uid"];
@@ -713,6 +728,35 @@ void sendPICClist() {
   	}
 }
 
+void sendStatus() {
+  	DynamicJsonBuffer jsonBuffer;
+  	JsonObject& root = jsonBuffer.createObject();
+  	root["command"] = "status";
+  	root["heap"] = ESP.getFreeHeap();
+  	root["chipid"] = String(ESP.getChipId(), HEX);
+  	root["cpu"] = ESP.getCpuFreqMHz();
+  	root["availsize"] = ESP.getFreeSketchSpace();
+  	root["ssid"] = (String)WiFi.SSID();
+  	root["ip"] = (String)WiFi.localIP()[0] + "." + (String)WiFi.localIP()[1] + "." + (String)WiFi.localIP()[2] + "." + (String)WiFi.localIP()[3];
+  	root["gateway"] = (String)WiFi.gatewayIP()[0] + "." + (String)WiFi.gatewayIP()[1] + "." + (String)WiFi.gatewayIP()[2] + "." + (String)WiFi.gatewayIP()[3];
+  	root["netmask"] = (String)WiFi.subnetMask()[0] + "." + (String)WiFi.subnetMask()[1] + "." + (String)WiFi.subnetMask()[2] + "." + (String)WiFi.subnetMask()[3];
+  	root["dns"] = (String)WiFi.dnsIP()[0] + "." + (String)WiFi.dnsIP()[1] + "." + (String)WiFi.dnsIP()[2] + "." + (String)WiFi.dnsIP()[3];
+  	root["mac"] = getMacAddress();
+  	size_t len = root.measureLength();
+  	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+  	if (buffer) {
+    	root.printTo((char *)buffer->get(), len + 1);
+    	ws.textAll(buffer);
+  	}
+}
+
+String getMacAddress() {
+	uint8_t mac[6];
+    char macStr[18] = { 0 };
+    WiFi.macAddress(mac);
+    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return String(macStr);
+}
 
 // Send Scanned SSIDs to websocket clients as JSON object
 void printScanResult(int networksFound) {

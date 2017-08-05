@@ -1,58 +1,38 @@
 var websock;
 
-function sortTable(n) {
-    var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
-    table = document.getElementById("knowntable");
-    switching = true;
-    //Set the sorting direction to ascending:
-    dir = "asc";
-    /*Make a loop that will continue until
-    no switching has been done:*/
-    while (switching) {
-        //start by saying: no switching is done:
-        switching = false;
-        rows = table.getElementsByTagName("TR");
-        /*Loop through all table rows (except the
-        first, which contains table headers):*/
-        for (i = 1; i < (rows.length - 1); i++) {
-            //start by saying there should be no switching:
-            shouldSwitch = false;
-            /*Get the two elements you want to compare,
-            one from current row and one from the next:*/
-            x = rows[i].getElementsByTagName("TD")[n];
-            y = rows[i + 1].getElementsByTagName("TD")[n];
-            /*check if the two rows should switch place,
-            based on the direction, asc or desc:*/
-            if (dir === "asc") {
-                if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-                    //if so, mark as a switch and break the loop:
-                    shouldSwitch = true;
-                    break;
-                }
-            } else if (dir === "desc") {
-                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-                    //if so, mark as a switch and break the loop:
-                    shouldSwitch = true;
-                    break;
-                }
-            }
-        }
-        if (shouldSwitch) {
-            /*If a switch has been marked, make the switch
-            and mark that a switch has been done:*/
-            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-            switching = true;
-            //Each time a switch is done, increase this count by 1:
-            switchcount++;
-        } else {
-            /*If no switching has been done AND the direction is "asc",
-            set the direction to "desc" and run the while loop again.*/
-            if (switchcount === 0 && dir === "asc") {
-                dir = "desc";
-                switching = true;
-            }
-        }
-    }
+function sortTable() {
+	var table, rows, switching, i, x, y, shouldSwitch;
+	table = document.getElementById("knowntable");
+	switching = true;
+	/*Make a loop that will continue until
+	no switching has been done:*/
+	while (switching) {
+		//start by saying: no switching is done:
+		switching = false;
+		rows = table.getElementsByTagName("TR");
+		/*Loop through all table rows (except the
+		first, which contains table headers):*/
+		for (i = 1; i < (rows.length - 1); i++) {
+			//start by saying there should be no switching:
+			shouldSwitch = false;
+			/*Get the two elements you want to compare,
+			one from current row and one from the next:*/
+			x = rows[i].getElementsByTagName("TD")[1];
+			y = rows[i + 1].getElementsByTagName("TD")[1];
+			if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+				//if so, mark as a switch and break the loop:
+				shouldSwitch = true;
+				break;
+			}
+		}
+		if (shouldSwitch) {
+			/*If a switch has been marked, make the switch
+			and mark that a switch has been done:*/
+			rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+			switching = true;
+			//Each time a switch is done, increase this count by 1:
+		}
+	}
 }
 
 function fadeOutIn(elem, speed) {
@@ -82,9 +62,12 @@ function listSCAN(obj) {
     document.getElementById("username").value = obj.user;
     document.getElementById("access").value = obj.access;
 	var ref = document.getElementById("buttonnormal");
+	var ref2 = document.getElementById("rembuttonnormal");
 	if (obj.access == 2) {
 		ref.style.display = "none";
+		ref2.style.display = "none";
 		ref = document.getElementById("buttontimetable");
+		ref2 = document.getElementById("rembuttontimetable");
 		document.getElementById("timetablecol").style.display = "block";
 		parseTimeData(obj.timed);
 	}
@@ -100,6 +83,7 @@ function listSCAN(obj) {
             update(this);
         };
         ref.textContent = "Update";
+		ref2.style.display = "block";
     } else {
         ref.dep = uid;
         ref.className = "btn btn-success btn-sm";
@@ -107,17 +91,21 @@ function listSCAN(obj) {
             update(this);
         };
         ref.textContent = "Add";
+		ref2.style.display = "none";
     }
     fadeOutIn(document.getElementById("fade"), 250);
 	fadeOutIn(document.getElementById("timetable"), 250);
 }
 
-function del(e) {
-    var x = confirm("This will remove " + e.id + " from database. Are you sure?");
-    if (x) {
-        var jsontosend = "{\"uid\":\"" + e.id + "\",\"command\":\"remove\"}";
-        websock.send(jsontosend);
-    }
+function del() {
+	var uid = document.getElementById("uidinp").value.toLowerCase();
+	var username = document.getElementById("username").value;
+	var x = confirm("This will remove " + uid.toUpperCase() + " : " + username + " from database. Are you sure?");
+	if (x) {
+		var jsontosend = "{\"uid\":\"" + uid + "\",\"command\":\"remove\"}";
+		websock.send(jsontosend);
+		websock.send("{\"command\":\"picclist\"}");
+	}
 }
 
 function update(e) {
@@ -152,11 +140,17 @@ function addRowHandlers() {
 						document.getElementById("access").value = "2";
 						document.getElementById("timetablecol").style.display = "block";
 						if (document.getElementById("buttonnormal").style.display == "block") document.getElementById("buttonnormal").style.display = "none";
+						if (document.getElementById("rembuttonnormal").style.display == "block") document.getElementById("rembuttonnormal").style.display = "none";
 						parseTimeData(row.getElementsByTagName("td")[3].innerHTML);
 					}
                     var ref = document.getElementById("buttonnormal");
-					if (document.getElementById("access").value == 2) ref = document.getElementById("buttontimetable");
-                    ref.style.display = "block";
+					var ref2 = document.getElementById("rembuttonnormal");
+					if (document.getElementById("access").value == 2) {
+						ref = document.getElementById("buttontimetable");
+						ref2 = document.getElementById("rembuttontimetable");
+					}
+					ref.style.display = "block";
+					ref2.style.display = "block";
                     ref.dep = document.getElementById("uidinp").value.toLowerCase();
                     ref.className = "btn btn-warning btn-sm";
                     ref.onclick = function() {
@@ -215,6 +209,8 @@ function showTimeMenu() {
 		if (document.getElementById("buttonnormal").style.display == "block") {
 			var but = document.getElementById("buttontimetable");
 			var butref = document.getElementById("buttonnormal");
+			document.getElementById("rembuttonnormal").style.display = "none";
+			document.getElementById("rembuttontimetable").style.display = "block";
 			but.style.display = "block";
 			but.dep = butref.dep;
 			but.className = butref.className;
@@ -231,6 +227,8 @@ function showTimeMenu() {
 		if (document.getElementById("buttontimetable").style.display == "block") {
 			var but = document.getElementById("buttonnormal");
 			var butref = document.getElementById("buttontimetable");
+			document.getElementById("rembuttonnormal").style.display = "block";
+			document.getElementById("rembuttontimetable").style.display = "none";
 			but.style.display = "block";
 			but.dep = butref.dep;
 			but.className = butref.className;
@@ -376,7 +374,7 @@ function start() {
             }
             document.getElementById("loading-img").style.display = "none";
             listknownPICC(obj);
-            sortTable(1);
+            sortTable();
             addRowHandlers();
         }
     };
