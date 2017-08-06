@@ -43,6 +43,7 @@
                                     <th>Label / User Name</th>
                                     <th>Access</th>
 									<th style="display:none"></th>
+									<th style="display:none"></th>
                                 </tr>
                             </thead>
                             <tbody id="tablebody"></tbody>
@@ -72,6 +73,10 @@
                                 <option selected="selected" value="1" id="access_infinite">Allow Infinite Access</option>
                                 <option value="0" id="access_deny">Deny Access</option>
                             </select>
+                        </div>
+						<div class="input-group">
+                            <span class="input-group-addon" style="text-align:left;min-width:100px"><strong>Valid untill</strong></span>
+                            <input id="validdate" type="text" style="max-width:290px" class="form-control" name="msg" placeholder="yyyy-mm-dd">
                         </div>
 						<br>
 					<div class="btn-group">
@@ -103,7 +108,7 @@
 								<div class="input-group">
 								<input id="fromMonday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillMonday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillMonday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>
@@ -119,7 +124,7 @@
 								<div class="input-group">
 								<input id="fromTuesday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillTuesday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillTuesday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>
@@ -135,7 +140,7 @@
 								<div class="input-group">
 								<input id="fromWednesday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillWednesday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillWednesday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>
@@ -151,7 +156,7 @@
 								<div class="input-group">
 								<input id="fromThursday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillThursday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillThursday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>
@@ -167,7 +172,7 @@
 								<div class="input-group">
 								<input id="fromFriday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillFriday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillFriday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>
@@ -183,7 +188,7 @@
 								<div class="input-group">
 								<input id="fromSaturday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillSaturday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillSaturday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>
@@ -199,7 +204,7 @@
 								<div class="input-group">
 								<input id="fromSunday" type="text" style="max-width:80px" class="form-control" placeholder="00:00">
 								<span class="input-group-addon" style="text-align:left;min-width:30px"><strong>-</strong></span>
-								<input id="untillSunday" type="text" style="max-width:80px" class="form-control" placeholder="24:00">
+								<input id="untillSunday" type="text" style="max-width:80px" class="form-control" placeholder="23:59">
 								</div>
 								</form>
 								</td>

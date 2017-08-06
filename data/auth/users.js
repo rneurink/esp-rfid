@@ -61,6 +61,7 @@ function listSCAN(obj) {
     document.getElementById("typeinp").value = obj.type;
     document.getElementById("username").value = obj.user;
     document.getElementById("access").value = obj.access;
+	document.getElementById("validdate").value = obj.validDate;
 	var ref = document.getElementById("buttonnormal");
 	var ref2 = document.getElementById("rembuttonnormal");
 	if (obj.access == 2) {
@@ -115,6 +116,8 @@ function update(e) {
     datatosend.user = document.getElementById("username").value;
     datatosend.haveAcc = document.getElementById("access").value;
 	datatosend.timedAcc = getTimeString();
+	if (!checkDateFormat) return;
+	datatosend.validDate = document.getElementById("validdate").value;
     websock.send(JSON.stringify(datatosend));
     websock.send("{\"command\":\"picclist\"}");
 }
@@ -143,6 +146,7 @@ function addRowHandlers() {
 						if (document.getElementById("rembuttonnormal").style.display == "block") document.getElementById("rembuttonnormal").style.display = "none";
 						parseTimeData(row.getElementsByTagName("td")[3].innerHTML);
 					}
+					document.getElementById("validdate").value = row.getElementsByTagName("td")[4].innerHTML;
                     var ref = document.getElementById("buttonnormal");
 					var ref2 = document.getElementById("rembuttonnormal");
 					if (document.getElementById("access").value == 2) {
@@ -191,6 +195,9 @@ function listknownPICC(obj) {
 		var cell4 = row.insertCell(3);
 		cell4.innerHTML = obj.timed[i];
 		cell4.style.display = "none";
+		var cell5 = row.insertCell(4);
+		cell5.innerHTML = obj.validDate[i];
+		cell5.style.display = "none";
         if (obj.access[i] == 1) {
             row.className = "success";
         } else if (obj.access[i] == 0) {
@@ -209,8 +216,10 @@ function showTimeMenu() {
 		if (document.getElementById("buttonnormal").style.display == "block") {
 			var but = document.getElementById("buttontimetable");
 			var butref = document.getElementById("buttonnormal");
-			document.getElementById("rembuttonnormal").style.display = "none";
-			document.getElementById("rembuttontimetable").style.display = "block";
+			if (document.getElementById("rembuttonnormal").style.display == "block") {
+				document.getElementById("rembuttonnormal").style.display = "none";
+				document.getElementById("rembuttontimetable").style.display = "block";
+			}
 			but.style.display = "block";
 			but.dep = butref.dep;
 			but.className = butref.className;
@@ -227,8 +236,10 @@ function showTimeMenu() {
 		if (document.getElementById("buttontimetable").style.display == "block") {
 			var but = document.getElementById("buttonnormal");
 			var butref = document.getElementById("buttontimetable");
-			document.getElementById("rembuttonnormal").style.display = "block";
-			document.getElementById("rembuttontimetable").style.display = "none";
+			if (document.getElementById("rembuttontimetable").style.display == "block") {
+				document.getElementById("rembuttonnormal").style.display = "block";
+				document.getElementById("rembuttontimetable").style.display = "none";
+			}
 			but.style.display = "block";
 			but.dep = butref.dep;
 			but.className = butref.className;
@@ -246,34 +257,92 @@ function checkTimeFormat() {
 	for (var i = 0; i < timeInputs.length; i++)
 	{
 		var ref = document.getElementById(timeInputs[i]);
-		var refval = ref.value;
-		if (refval.length == 5) return;
-		if (refval.charAt(2) == ":") {
-		  var replacement = "0" + refval.substr(3,1);
-			refval = refval.slice(0,-1);
-			refval += replacement;
-		} else if (refval.charAt(1) == ":") {
-			var replacement = "0" + refval.substr(0,1);
-			var tempstring = refval.substr(1,3);
-			refval = replacement + tempstring;
+		if (ref.value === null || ref.value === "") continue;
+		if (i % 2 == 0) {
+			var ref2 = document.getElementById(timeInputs[i+1]);
+			if (!(ref2.value === null || ref2.value === "")) {
+				var refval = ref.value.split(":");
+				var ref2val= ref2.value.split(":");
+				if (refval[0] > ref2val[0] || (refval[0] == ref2val[0] && refval[1] > ref2val[1])) {
+					var tempval = ref.value;
+					ref.value = ref2.value;
+					ref2.value = tempval;
+				}
+			}
 		}
-		ref.value = refval;
-		if (refval.length == 4) i--;
+		var result = false, m;
+		var re = /^\s*([01]?\d|2[0-3]):?([0-5]\d)\s*$/;
+		if ((m = ref.value.match(re))) {
+			result = (m[1].length === 2 ? "" : "0") + m[1] + ":" + m[2];
+		}
+		if (!result) {
+			alert("Invalid time format: " + document.getElementById(timeInputs[i]).value);
+			return false;
+		}
 	}
+	return true;
 }
 
-function checkTimeValue() {
-	var timeInputs = ["fromSunday","untillSunday","fromMonday","untillMonday","fromTuesday","untillTuesday","fromWednesday","untillWednesday","fromThursday","untillThursday","fromFriday","untillFriday","fromSaturday","untillSaturday"];
-	for (var i = 0; i < timeInputs.length; i += 2) {
-		var ref1 = document.getElementById(timeInputs[i]);
-		var ref2 = document.getElementById(timeInputs[i+1]);
-		if ((parseInt(ref1.value.substr(0,2)) > parseInt(ref2.value.substr(0,2))) || (parseInt(ref1.value.substr(0,2)) == parseInt(ref2.value.substr(0,2)) && parseInt(ref1.value.substr(3,2)) > parseInt(ref2.value.substr(3,2)))) {
-			var temp = ref1.value;
-			ref1.value = ref2.value;
-			ref2.value = temp;
-		}
+function checkDateFormat() { 
+	var ref = document.getElementById("validdate");
+	var refval = ref.value;
+	if (refval === null || refval === "") return true;
+	if (!validatedate()) return false;
+	
+	if (refval.charAt(2) == "-" && refval.length != 10) {
+		var replacement = "0" + refval.substr(3,6);
+		refval = refval.slice(0,-6);
+		refval += replacement;
+	} else if (refval.charAt(1) == "-" && refval.length != 10) {
+		var replacement = "0" + refval;
+		refval = replacement;
 	}
+	ref.value = refval;
+	
+	if (refval.length < 10) checkDateFormat();
+	return true;
 }
+
+function validatedate() {  
+	var dateformat = /^\d{4}[\-](0?[1-9]|1[012])[\-](0?[1-9]|[12][0-9]|3[01])$/;  
+	var ref = document.getElementById("validdate");
+	if(ref.value.match(dateformat)) {  
+		ref.focus();  
+		var pdate = ref.value.split('-');  
+		
+		var dd = parseInt(pdate[2]);  
+		var mm  = parseInt(pdate[1]);  
+		var yy = parseInt(pdate[0]);  
+		// Create list of days of a month [assume there is no leap year by default]  
+		var ListofDays = [31,28,31,30,31,30,31,31,30,31,30,31];  
+		if (mm==1 || mm>2) {  
+			if (dd>ListofDays[mm-1]) {  
+				alert('Invalid date format!');  
+				return false;  
+			}  
+		}  
+		if (mm==2) {  
+			var lyear = false;  
+			if ( (!(yy % 4) && yy % 100) || !(yy % 400)) {  
+				lyear = true;  
+			}  
+			if ((lyear==false) && (dd>=29)) {  
+				alert('Invalid date format!');  
+				return false;  
+			}  
+			if ((lyear==true) && (dd>29)) {  
+				alert('Invalid date format!');  
+				return false;  
+			}  
+		}  
+	}  
+	else {  
+		alert("Invalid date format!");  
+		ref.focus();  
+		return false;  
+	}
+	return true;
+}  
 
 function clearTimeData() {
 	var timeInputs = ["checkSunday","fromSunday","untillSunday","checkMonday","fromMonday","untillMonday","checkTuesday","fromTuesday","untillTuesday","checkWednesday","fromWednesday","untillWednesday","checkThursday","fromThursday","untillThursday","checkFriday","fromFriday","untillFriday","checkSaturday","fromSaturday","untillSaturday"];
@@ -332,8 +401,7 @@ function parseTimeData(str)
 }
 
 function getTimeString() {
-	checkTimeFormat();
-	checkTimeValue();
+	if (!checkTimeFormat()) return;
 	var timeInputs = ["checkSunday","fromSunday","untillSunday","checkMonday","fromMonday","untillMonday","checkTuesday","fromTuesday","untillTuesday","checkWednesday","fromWednesday","untillWednesday","checkThursday","fromThursday","untillThursday","checkFriday","fromFriday","untillFriday","checkSaturday","fromSaturday","untillSaturday"];
 	var timeString = "";
 	for (var i = 0; i < timeInputs.length; i += 3) {
@@ -343,7 +411,7 @@ function getTimeString() {
 	    timeString += ((i/3)+"_")
 	    if (ref1.value == "") timeString += ("00:00-");
 	    else timeString += (document.getElementById(timeInputs[i+1]).value + "-");
-			if (ref2.value == "") timeString += ("24:00 ");
+			if (ref2.value == "") timeString += ("23:59 ");
 	    else timeString += (document.getElementById(timeInputs[i+2]).value + " ");
 	  }
 	}

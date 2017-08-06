@@ -66,7 +66,6 @@ int timeZone = 2; //UTC +2 is my timeZone. Adjust to your timezone
 
 bool inAPMode = false;
 bool SDAvailable = false;
-bool SDMutex = false;
 bool denyAcc = false;
 bool activateRelay = false;
 unsigned long previousMillis = 0;
@@ -202,52 +201,70 @@ void rfidloop() {
 	    	// Get username Access Status
 			String username = json["user"];
 			haveAcc = json["haveAcc"];
+			String validdate = json["validDate"];
+			bool isValid = false;
 			Serial.println(" = known PICC");
 			Serial.print("[ INFO ] User Name: ");
 			Serial.print(username);
 			// Check if user have an access
-			if (haveAcc == 1) {
-				allowAccess();
+			if (validdate != "") {
+				String date = getDate();
+				//Date comes in format yyyy-mm-dd
+				int currentDate[3] {date.substring(0,4).toInt(), date.substring(5,7).toInt(), date.substring(8).toInt()};
+				int validationDate[3] {validdate.substring(0,4).toInt(), validdate.substring(5,7).toInt(), validdate.substring(8).toInt()};
+				if (currentDate[0] < validationDate[0]) isValid = true;
+				if (currentDate[0] = validationDate[0]) {
+					if (currentDate[1] < validationDate[1]) isValid = true;
+					if (currentDate[1] = validationDate[1] && currentDate[2] <= validationDate[2]) isValid = true;
+				}
 			}
-			else if (haveAcc == 0) {
-				denyAccess();
-			}
-			else if (haveAcc == 2) {
-				//Check timed access
-				// 0:sunday, 1:monday etc
-				//Format: (0_12:00-24:00 1_08:00-16:00)
-        		const char* timedAccessBuffer = json["timedAcc"];
-				timedAccess = String(timedAccessBuffer);
-				int dayCount = (timedAccess.length()/13);
-				int allowedDays[dayCount];
-				for (int i = 0; i < dayCount; i++) {
-					allowedDays[i] = String(timedAccess.charAt(i*14)).toInt();
+			else isValid = true;
+			if (isValid) {
+				if (haveAcc == 1) {
+					allowAccess();
 				}
-				int currentDay = timeClient.getDay();
-				bool checkTime = false;
-				int checkTimeOnPos = 0;
-				//Check if current day is one of the allowed days
-				for (int i = 0; i < dayCount; i++)
-				{
-					if (currentDay == allowedDays[i]) {
-						checkTime = true;
-						checkTimeOnPos = i;
-						break;
-					} 
-				}
-				if (checkTime) {
-					String fromTime = timedAccess.substring((checkTimeOnPos*14) + 2,(checkTimeOnPos*14) + 7);
-					String untillTime = timedAccess.substring((checkTimeOnPos*14) + 8,(checkTimeOnPos*14) + 13);
-					int currentHour = timeClient.getHours(), currentMinute = timeClient.getMinutes();
-					if ((fromTime.substring(0,2).toInt()) < currentHour && (untillTime.substring(0,2).toInt()) > currentHour) allowAccess(); //Within the hours
-					else if ((fromTime.substring(0,2).toInt()) == currentHour && (fromTime.substring(3).toInt()) < currentMinute) allowAccess(); //Same hour as from time check the minutes
-					else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) allowAccess(); //Same hour as untill time check the minutes
-					else denyAccess();
-				}
-				else {
+				else if (haveAcc == 0) {
 					denyAccess();
 				}
-
+				else if (haveAcc == 2) {
+					//Check timed access
+					// 0:sunday, 1:monday etc
+					//Format: (0_12:00-24:00 1_08:00-16:00)
+	        		const char* timedAccessBuffer = json["timedAcc"];
+					timedAccess = String(timedAccessBuffer);
+					int dayCount = (timedAccess.length()/13);
+					int allowedDays[dayCount];
+					for (int i = 0; i < dayCount; i++) {
+						allowedDays[i] = String(timedAccess.charAt(i*14)).toInt();
+					}
+					int currentDay = timeClient.getDay();
+					bool checkTime = false;
+					int checkTimeOnPos = 0;
+					//Check if current day is one of the allowed days
+					for (int i = 0; i < dayCount; i++)
+					{
+						if (currentDay == allowedDays[i]) {
+							checkTime = true;
+							checkTimeOnPos = i;
+							break;
+						} 
+					}
+					if (checkTime) {
+						String fromTime = timedAccess.substring((checkTimeOnPos*14) + 2,(checkTimeOnPos*14) + 7);
+						String untillTime = timedAccess.substring((checkTimeOnPos*14) + 8,(checkTimeOnPos*14) + 13);
+						int currentHour = timeClient.getHours(), currentMinute = timeClient.getMinutes();
+						if ((fromTime.substring(0,2).toInt()) < currentHour && (untillTime.substring(0,2).toInt()) > currentHour) allowAccess(); //Within the hours
+						else if ((fromTime.substring(0,2).toInt()) == currentHour && (fromTime.substring(3).toInt()) < currentMinute) allowAccess(); //Same hour as from time check the minutes
+						else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) allowAccess(); //Same hour as untill time check the minutes
+						else denyAccess();
+					}
+					else {
+						denyAccess();
+					}
+				}
+			}
+			else {
+				denyAccess();
 			}
 			// Also inform Administrator Portal
 			// Encode a JSON Object and send it to All WebSocket Clients
@@ -267,6 +284,7 @@ void rfidloop() {
 			// Timed access
 			if (haveAcc == 2) root["timed"] = timedAccess;
 			else root["timed"] = "";
+			root["validDate"] = validdate;
 			size_t len = root.measureLength();
 			AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
 			if (buffer) {
@@ -282,7 +300,7 @@ void rfidloop() {
   	}
   	else {
 		// If we don't know the UID, inform Administrator Portal so admin can give access or add it to database
-		Serial.println(" = unknown PICC");
+		Serial.print(" = unknown PICC");
 		denyAccess();
 		DynamicJsonBuffer jsonBuffer;
 		JsonObject& root = jsonBuffer.createObject();
@@ -293,6 +311,7 @@ void rfidloop() {
 		root["type"] = type;
 		// A boolean 1 for known tags 0 for unknown
 		root["known"] = isKnown;
+		root["validDate"] = "";
 		size_t len = root.measureLength();
 		AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
 		if (buffer) {
@@ -636,7 +655,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       	else if (strcmp(command, "configfile")  == 0) {
         	fs::File f = SPIFFS.open("/auth/config.json", "w+");
         	if (f) {
-          		f.print(msg);
           		root.prettyPrintTo(f);
           		f.close();
           		ESP.reset();
@@ -698,6 +716,7 @@ void sendPICClist() {
   	JsonArray& data2 = root.createNestedArray("users");
   	JsonArray& data3 = root.createNestedArray("access");
   	JsonArray& data4 = root.createNestedArray("timed");
+  	JsonArray& data5 = root.createNestedArray("validDate");
   	while (dir.next()) {
     	fs::File f = SPIFFS.open(dir.fileName(), "r");
 	    size_t size = f.size();
@@ -713,9 +732,11 @@ void sendPICClist() {
 	      	String username = json["user"];
 	      	int haveAcc = json["haveAcc"];
 	      	String timedAccess = json["timedAcc"];
+	      	String validdate = json["validDate"];
 	      	data2.add(username);
 	      	data3.add(haveAcc);
 	      	data4.add(timedAccess);
+	      	data5.add(validdate);
 	    }
 	    data.add(dir.fileName());
 	    f.close();
@@ -806,30 +827,23 @@ String getDate() {
 /* ------------------ Logging Functions ---------------- */
 bool createLog(String dataString, String filename) {
 	if (!SDAvailable) return false;
-	if (SDMutex) waitForMutex();
-	SDMutex = true;
 	sd::File dataFile = SD.open(filename, FILE_WRITE);
 	if (dataFile) {
 		dataFile.println(dataString);
 		dataFile.close();
-		SDMutex = false;
 		return true;
 	}
 	else {
 		Serial.println(F("[ WARN ] Error opening file on SD card"));
-		SDMutex = false;
 		return false;
 	}
 }
 
 bool readLog(String filename) {
 	if (!SDAvailable) return false;
-	if (SDMutex) waitForMutex();
-	SDMutex = true;
 	sd::File dataFile = SD.open(filename);
 	if (!dataFile) {
 		Serial.println(F("[ WARN ] Error opening file on SD card"));
-		SDMutex = false;
 		return false;
 	}
 
@@ -857,14 +871,8 @@ bool readLog(String filename) {
 
 bool readUserLog(String UID) {
 	if (!SDAvailable) return false;
-	if (SDMutex) waitForMutex();
 	return true;
 
-}
-
-void waitForMutex() {
-	while (SDMutex)
-	{}
 }
 
 /* ------------------ Misc Functions ------------------- */

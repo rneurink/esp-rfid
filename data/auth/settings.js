@@ -16,7 +16,6 @@ function listCONF(obj) {
 	var dlAnchorElem = document.getElementById("downloadSet");
 	dlAnchorElem.setAttribute("href", dataStr);
 	dlAnchorElem.setAttribute("download", "esp-rfid-settings.json");
-  }
 }
 
 function listSSID(obj) {
@@ -223,7 +222,7 @@ function start() {
 		} else if (obj.command === "picclist") {
 			piccBackup(obj);
 		} else if (obj.command === "status") {
-		listStats(obj);
+			listStats(obj);
 		}
-  };
+	};
 }

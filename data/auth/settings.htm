@@ -85,7 +85,7 @@
 							<div class="col-xs-9">
 							<form>
 								<label class="radio-inline"><input type="radio" value="1" name="wifimode" id="wifimodeap">Access Point </label>
-								<label class="radio-inline"><input type="radio" value="0" name="wifimode" id="wifimodesta" checked>Client</label>
+								<label class="radio-inline"><input type="radio" value="0" name="wifimode" id="wifimodesta" checked>Station</label>
 							</form>
 							</div>
 						</div>
@@ -230,8 +230,8 @@
                     <legend>Clear Log</legend>
                     <div class="alert alert-danger"><strong>Warning!</strong> This will delete all logs.</div>
                     <button id="clearlog" type="button" class="btn btn-primary btn-xs" onclick="clearLog()">Clear Log</button>
-                </div>
-				<br>
+                <br>
+				</div>
                 <div class="col-sm-6">
                     <legend>Update Firmware</legend>
                     <form class="form-inline" method="POST" action="/auth/update" enctype="multipart/form-data">
