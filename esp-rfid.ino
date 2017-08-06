@@ -282,8 +282,8 @@ void rfidloop() {
 			// Username
 			root["user"] = username;
 			// Timed access
-			if (haveAcc == 2) root["timed"] = timedAccess;
-			else root["timed"] = "";
+			if (haveAcc == 2) root["timedAcc"] = timedAccess;
+			else root["timedAcc"] = "";
 			root["validDate"] = validdate;
 			size_t len = root.measureLength();
 			AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
@@ -715,7 +715,7 @@ void sendPICClist() {
   	JsonArray& data = root.createNestedArray("piccs");
   	JsonArray& data2 = root.createNestedArray("users");
   	JsonArray& data3 = root.createNestedArray("access");
-  	JsonArray& data4 = root.createNestedArray("timed");
+  	JsonArray& data4 = root.createNestedArray("timedAcc");
   	JsonArray& data5 = root.createNestedArray("validDate");
   	while (dir.next()) {
     	fs::File f = SPIFFS.open(dir.fileName(), "r");

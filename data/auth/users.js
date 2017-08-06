@@ -70,7 +70,7 @@ function listSCAN(obj) {
 		ref = document.getElementById("buttontimetable");
 		ref2 = document.getElementById("rembuttontimetable");
 		document.getElementById("timetablecol").style.display = "block";
-		parseTimeData(obj.timed);
+		parseTimeData(obj.timedAcc);
 	}
 	else {
 		document.getElementById("timetablecol").style.display = "none";
@@ -193,7 +193,7 @@ function listknownPICC(obj) {
 				break;
 		}
 		var cell4 = row.insertCell(3);
-		cell4.innerHTML = obj.timed[i];
+		cell4.innerHTML = obj.timedAcc[i];
 		cell4.style.display = "none";
 		var cell5 = row.insertCell(4);
 		cell5.innerHTML = obj.validDate[i];

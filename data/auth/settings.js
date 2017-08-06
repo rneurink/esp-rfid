@@ -146,7 +146,9 @@ function restoreUser() {
 						var uid = json.piccs[i - 1].slice(3);
 						var user = json.users[i - 1];
 						var acc = json.access[i - 1];
-						restore1by1(i, uid, user, acc, len);
+						var timed = json.timedAcc[i - 1];
+						var validdate = json.validDate[i - 1];
+						restore1by1(i, uid, user, acc, timed, validdate, len);
 					}
 				}
 			}
@@ -156,13 +158,15 @@ function restoreUser() {
 	}
 }
 
-function restore1by1(n, uid, user, acc, len) {
+function restore1by1(n, uid, user, acc, timed, validdate, len) {
 	setTimeout(function() {
 		var datatosend = {};
 		datatosend.command = "userfile";
 		datatosend.uid = uid;
 		datatosend.user = user;
 		datatosend.haveAcc = acc;
+		datatosend.timedAcc = timed;
+		datatosend.validDate = validdate;
 		websock.send(JSON.stringify(datatosend));
 		var elem = document.getElementById("dynamic");
 		var part = 100 / len;
