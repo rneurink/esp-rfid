@@ -1,85 +1,85 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="">
-    <meta name="author" content="">
-    <link rel="icon" href="/favicon.ico">
-    <title>ESP RFID</title>
-    <!-- Bootstrap core CSS -->
-    <link href="/bootstrap.css" rel="stylesheet">
-    <script src="/auth/settings.js" type="text/javascript" charset="utf-8"></script>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="">
+	<meta name="author" content="">
+	<link rel="icon" href="/favicon.ico">
+	<title>ESP RFID</title>
+	<!-- Bootstrap core CSS -->
+	<link href="/bootstrap.css" rel="stylesheet">
+	<script src="/auth/settings.js" type="text/javascript" charset="utf-8"></script>
 </head>
 <body onload="start()">
-    <div class="container">
-        <div class="header clearfix">
-            <nav>
-                <ul class="nav nav-pills pull-right">
-                    <li role="presentation"><a href="/auth/users.htm">Users</a> </li>
-                    <li role="presentation" class="active"><a href="/auth/settings.htm">Settings</a> </li>
-                    <li role="presentation"><a href="/auth/log.htm">Log</a></li>
-                </ul>
-            </nav>
-            <h3 class="text-muted">ESP RFID</h3>
-        </div>
-        <div class="jumbotron">
-            <div class="alert alert-warning"> <strong>Warning!</strong> Settings will take effect when the device is rebooted. </div>
-            <div id="loading-img" class="text-center">
-                <img src="/load.gif">
-                <h5>Please wait while WebSocket is connecting...</h5>
-                <br>
-            </div>
-            <div class="row">
+	<div class="container">
+		<div class="header clearfix">
+			<nav>
+				<ul class="nav nav-pills pull-right">
+					<li role="presentation"><a href="/auth/users.htm">Users</a> </li>
+					<li role="presentation" class="active"><a href="/auth/settings.htm">Settings</a> </li>
+					<li role="presentation"><a href="/auth/log.htm">Log</a></li>
+				</ul>
+			</nav>
+			<h3 class="text-muted">ESP RFID</h3>
+		</div>
+		<div class="jumbotron">
+			<div class="alert alert-warning"> <strong>Warning!</strong> Settings will take effect when the device is rebooted. </div>
+			<div id="loading-img" class="text-center">
+				<img src="/load.gif">
+				<h5>Please wait while WebSocket is connecting...</h5>
+				<br>
+			</div>
+			<div class="row">
 				<div class="col-sm-6">
-                    <div>
-                        <legend>General Settings</legend>
-                        <h6 class="text-muted">Type your access password and device name.</h6>
-                        <br>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Admin Password</label>
-                            <span class="col-xs-9">
-                                <input class="form-control input-sm" style="display:inline;max-width:185px" id="adminpass" type="text" name="admin_pass">
-                            </span>
-                        </div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Device Name</label>
-                            <span class="col-xs-9">
-                                <input class="form-control input-sm" style="display:inline;max-width:185px" id="hstname" type="text" name="hostname">
-                            </span>
-                        </div>
+					<div>
+						<legend>General Settings</legend>
+						<h6 class="text-muted">Type your access password and device name.</h6>
 						<br>
-                        <legend>Hardware Settings</legend>
-                        <h6 class="text-muted">Select your desired strength of the RFID antenna and the activation time of the relay.</h6>
-                        <br>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Antenna Gain</label>
-                            <span class="col-xs-9">
-                                <select class="form-control input-sm" style="max-width:185px" id="gain">
-                                    <option value="112">Max (48 db)</option>
-                                    <option value="96">43 db</option>
-                                    <option value="48">38 db</option>
-                                    <option selected="selected" value="32">Avg (33 db)</option>
-                                    <option value="16">23 db</option>
-                                    <option value="0">Min (18 db)</option>
-                                </select>
-                            </span>
-                        </div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Activate Time</label>
-                            <span class="col-xs-9">
-                                <input class="form-control input-sm" placeholder="in Microseconds" style="display:inline;max-width:185px" id="delay" type="text" name="hightime">
-                            </span>
-                        </div>
-                        <button id="testb" type="button" class="btn btn-primary btn-xs" onclick="testRelay()">Test Relay</button>
-                    </div>
-                </div>
-                <div class="col-sm-6">
-                    <div>
-                        <legend>Wi-Fi Client Settings</legend>
-                        <h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
-                        <br>
+						<div class="row form-group">
+							<label class="col-xs-3">Admin Password</label>
+							<span class="col-xs-9">
+								<input class="form-control input-sm" style="display:inline;max-width:185px" id="adminpass" type="text" name="admin_pass">
+							</span>
+						</div>
+						<div class="row form-group">
+							<label class="col-xs-3">Device Name</label>
+							<span class="col-xs-9">
+								<input class="form-control input-sm" style="display:inline;max-width:185px" id="hstname" type="text" name="hostname">
+							</span>
+						</div>
+						<br>
+						<legend>Hardware Settings</legend>
+						<h6 class="text-muted">Select your desired strength of the RFID antenna and the activation time of the relay.</h6>
+						<br>
+						<div class="row form-group">
+							<label class="col-xs-3">Antenna Gain</label>
+							<span class="col-xs-9">
+								<select class="form-control input-sm" style="max-width:185px" id="gain">
+									<option value="112">Max (48 db)</option>
+									<option value="96">43 db</option>
+									<option value="48">38 db</option>
+									<option selected="selected" value="32">Avg (33 db)</option>
+									<option value="16">23 db</option>
+									<option value="0">Min (18 db)</option>
+								</select>
+							</span>
+						</div>
+						<div class="row form-group">
+							<label class="col-xs-3">Activate Time</label>
+							<span class="col-xs-9">
+								<input class="form-control input-sm" placeholder="in Microseconds" style="display:inline;max-width:185px" id="delay" type="text" name="hightime">
+							</span>
+						</div>
+						<button id="testb" type="button" class="btn btn-primary btn-xs" onclick="testRelay()">Test Relay</button>
+					</div>
+				</div>
+				<div class="col-sm-6">
+					<div>
+						<legend>Wi-Fi Client Settings</legend>
+						<h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
+						<br>
 						<div class="row form-group">
 							<label class="col-xs-3">Wi-Fi Mode</label>
 							<div class="col-xs-9">
@@ -89,56 +89,56 @@
 							</form>
 							</div>
 						</div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">SSID</label>
-                            <span class="col-xs-9">
-                                <input class="form-control input-sm" style="display:inline;max-width:150px" id="stassid" type="text" name="sta_ssid">
-                                <select class="form-control input-sm" style="display:none;max-width:150px" id="ssid"></select>
-                                <button id="scanb" type="button" class="btn btn-primary btn-xs" onclick="scanWifi()">Scan</button>
-                            </span>
-                        </div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Password</label>
-                            <span class="col-xs-9">
-                                <input id="stapass" style="max-width:150px" class="form-control input-sm" type="text" name="sta_passwd">
-                            </span>
-                        </div>
+						<div class="row form-group">
+							<label class="col-xs-3">SSID</label>
+							<span class="col-xs-9">
+								<input class="form-control input-sm" style="display:inline;max-width:150px" id="stassid" type="text" name="sta_ssid">
+								<select class="form-control input-sm" style="display:none;max-width:150px" id="ssid"></select>
+								<button id="scanb" type="button" class="btn btn-primary btn-xs" onclick="scanWifi()">Scan</button>
+							</span>
+						</div>
+						<div class="row form-group">
+							<label class="col-xs-3">Password</label>
+							<span class="col-xs-9">
+								<input id="stapass" style="max-width:150px" class="form-control input-sm" type="text" name="sta_passwd">
+							</span>
+						</div>
 						<br>
-                        <legend>Access Point Settings</legend>
-                        <h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
-                        <br>
-                        <div class="row form-group">
-                            <label class="col-xs-3">SSID</label>
-                            <span class="col-xs-9">
-                                <input id="apssid" style="max-width:150px" class="form-control input-sm" type="text" name="ap_ssid">
-                            </span>
-                        </div>
-                        <div class="row form-group">
-                            <label class="col-xs-3">Password</label>
-                            <span class="col-xs-9">
-                                <input id="appass" style="max-width:150px" class="form-control input-sm" type="text" name="ap_passwd">
-                            </span>
-                        </div>
-                    </div>
-                    <br>
-                </div>
-            </div>
-            <hr>
-            <div>
+						<legend>Access Point Settings</legend>
+						<h6 class="text-muted">Type your Wi-Fi Network's SSID or Scan for nerby Wireless Networks to join.</h6>
+						<br>
+						<div class="row form-group">
+							<label class="col-xs-3">SSID</label>
+							<span class="col-xs-9">
+								<input id="apssid" style="max-width:150px" class="form-control input-sm" type="text" name="ap_ssid">
+							</span>
+						</div>
+						<div class="row form-group">
+							<label class="col-xs-3">Password</label>
+							<span class="col-xs-9">
+								<input id="appass" style="max-width:150px" class="form-control input-sm" type="text" name="ap_passwd">
+							</span>
+						</div>
+					</div>
+					<br>
+				</div>
+			</div>
+			<hr>
+			<div>
 				<button id="refstat" onclick="refreshStats()" class="btn btn-warning btn-xs">Show Statics</button>
-                <button onclick="saveConf()" class="btn btn-primary btn-sm pull-right">Save & Reboot</button>
-            </div>
-            <br>
-        </div>
+				<button onclick="saveConf()" class="btn btn-primary btn-sm pull-right">Save & Reboot</button>
+			</div>
+			<br>
+		</div>
 		<div id="status" class="jumbotron" style="display:none">
 			<div class="row">
 				<div class="col-sm-6"><legend>Device Statics</legend></div>
 			</div>
-            <div class="row">
+			<div class="row">
 			<div class="col-sm-6">
 				<div class="panel panel-default table-responsive">
-                <table class="table table-hover table-striped">
-                <caption>Device</caption>
+				<table class="table table-hover table-striped">
+				<caption>Device</caption>
 				<tr>
 					<th>Chip ID</th>
 					<td id="chip"></td>
@@ -201,62 +201,64 @@
 			</div>
 			</div>
 		</div>
-        <div class="jumbotron">
-            <div class="row">
+		<div class="jumbotron">
+			<div class="row">
 				<div class="col-sm-6">
-                  <legend>Backup</legend>
-                  <h6 class="text-muted">Please make sure that you have made a backup before updating the firmware.</h6>
-                  <div>
-                     <button class="btn btn-link btn-sm" onclick="backupuser()">Backup User Data</button>
-                     <a id="downloadUser" style="display:none"></a>
-                     <button class="btn btn-link btn-sm" onclick="backupset()">Backup Settings</button>
-                     <a id="downloadSet" style="display:none"></a>
-                  </div>
-                  <br>
-                  <div>
-                     <legend>Restore</legend>
-                     <h6 class="text-muted">Click on links and choose your backup file to restore.</h6>
-                     <label for="restoreUser" class="btn btn-link btn-sm">Restore User Data</label>
-                     <input id="restoreUser" type="file" accept="text/json" onchange="restoreUser()" style="display:none;">
-                     <label for="restoreSet" class="btn btn-link btn-sm">Restore Settings</label>
-                     <input id="restoreSet" type="file" accept="text/json" onchange="restoreSet()" style="display:none;">
-                  </div>
-                  <br>
-                  <div id="pbar" class="progress" style="display:none">
-                     <div id="dynamic" class="progress-bar progress-bar-success progress-bar-striped">Restoring...</div>
-                  </div>
-               </div>
-                <div class="col-sm-6">
-                    <legend>Clear Log</legend>
-                    <div class="alert alert-danger"><strong>Warning!</strong> This will delete all logs.</div>
-                    <button id="clearlog" type="button" class="btn btn-primary btn-xs" onclick="clearLog()">Clear Log</button>
-                <br>
+					<legend>Backup</legend>
+					<h6 class="text-muted">Please make sure that you have made a backup before updating the firmware.</h6>
+					<div>
+						<button class="btn btn-link btn-sm" onclick="backupuser()">Backup User Data</button>
+						<a id="downloadUser" style="display:none"></a>
+						<button class="btn btn-link btn-sm" onclick="backupset()">Backup Settings</button>
+						<a id="downloadSet" style="display:none"></a>
+					</div>
+					<br>
+					<div>
+						<legend>Restore</legend>
+						<h6 class="text-muted">Click on links and choose your backup file to restore.</h6>
+						<label for="restoreUser" class="btn btn-link btn-sm">Restore User Data</label>
+						<input id="restoreUser" type="file" accept="text/json" onchange="restoreUser()" style="display:none;">
+						<label for="restoreSet" class="btn btn-link btn-sm">Restore Settings</label>
+						<input id="restoreSet" type="file" accept="text/json" onchange="restoreSet()" style="display:none;">
+					</div>
+					<br>
+					<div id="pbar" class="progress" style="display:none">
+						<div id="dynamic" class="progress-bar progress-bar-success progress-bar-striped">Restoring...</div>
+					</div>
 				</div>
-                <div class="col-sm-6">
-                    <legend>Update Firmware</legend>
-                    <form class="form-inline" method="POST" action="/auth/update" enctype="multipart/form-data">
-                        <div class="form-group">
-                            <input type="file" name="update">
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-                    </form>
-                    <br>
-                    <legend>Update SPIFFS</legend>
-                    <div class="alert alert-danger"><strong>Warning!</strong> This will delete all data (including UIDs, Users, Settings).</div>
-                    <form class="form-inline" method="POST" action="/auth/spiupdate" enctype="multipart/form-data">
-                        <div class="form-group">
-                            <input type="file" name="update">
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-sm">Upload</button>
-                    </form>
-                    <br>
-                </div>
-            </div>
-        </div>
-        <hr>
-        <footer>
-            <h6 class="text-muted">ESP RFID - This is a <a href="https://github.com/omersiar/esp-rfid/blob/master/LICENSE">free</a> software</h6>
-        </footer>
-    </div>
+				<div class="col-sm-6">
+					<legend>Clear Log</legend>
+					</div>
+					<div class="alert alert-danger"><strong>Warning!</strong> This will delete all logs.</div>
+					<button id="clearlog" type="button" class="btn btn-primary btn-xs" onclick="clearLog()">Clear Log</button>
+					</div>
+				<br>
+				</div>
+				<div class="col-sm-6">
+					<legend>Update Firmware</legend>
+					<form class="form-inline" method="POST" action="/auth/update" enctype="multipart/form-data">
+						<div class="form-group">
+							<input type="file" name="update">
+						</div>
+						<button type="submit" class="btn btn-primary btn-sm">Upload</button>
+					</form>
+					<br>
+					<legend>Update SPIFFS</legend>
+					<div class="alert alert-danger"><strong>Warning!</strong> This will delete all data (including UIDs, Users, Settings).</div>
+					<form class="form-inline" method="POST" action="/auth/spiupdate" enctype="multipart/form-data">
+						<div class="form-group">
+							<input type="file" name="update">
+						</div>
+						<button type="submit" class="btn btn-primary btn-sm">Upload</button>
+					</form>
+					<br>
+				</div>
+			</div>
+		</div>
+		<hr>
+		<footer>
+			<h6 class="text-muted">ESP RFID - This software is available on <a href="https://github.com/omersiar/esp-rfid/">github</a></h6>
+		</footer>
+	</div>
 </body>
 </html>

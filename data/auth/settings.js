@@ -3,12 +3,12 @@ var websock;
 function listCONF(obj) {
 	document.getElementById("adminpass").value = obj.auth_pass;
 	document.getElementById("hstname").value = obj.wifi_hostname;
-    document.getElementById("gain").value = obj.rfid_gain;
-    document.getElementById("delay").value = obj.relay_time;
+	document.getElementById("gain").value = obj.rfid_gain;
+	document.getElementById("delay").value = obj.relay_time;
 	document.getElementById("apssid").value = obj.ap_ssid;
 	document.getElementById("appass").value = obj.ap_pass;
 	document.getElementById("stassid").value = obj.sta_ssid;
-    document.getElementById("stapass").value = obj.sta_pass;
+	document.getElementById("stapass").value = obj.sta_pass;
 	if (obj.wifimode === "1") {
 		document.getElementById("wifimodeap").checked = true;
 	}
@@ -19,25 +19,25 @@ function listCONF(obj) {
 }
 
 function listSSID(obj) {
-    var select = document.getElementById("ssid");
-    for (var i = 0; i < obj.ssid.length; i++) {
-        var opt = document.createElement("option");
-        opt.value = obj.ssid[i];
-        opt.innerHTML = obj.ssid[i];
-        select.appendChild(opt);
-    }
-    document.getElementById("scanb").innerHTML = "Re-Scan";
+	var select = document.getElementById("ssid");
+	for (var i = 0; i < obj.ssid.length; i++) {
+		var opt = document.createElement("option");
+		opt.value = obj.ssid[i];
+		opt.innerHTML = obj.ssid[i];
+		select.appendChild(opt);
+	}
+	document.getElementById("scanb").innerHTML = "Re-Scan";
 }
 
 function scanWifi() {
-    websock.send("{\"command\":\"scan\"}");
-    document.getElementById("scanb").innerHTML = "...";
-    document.getElementById("stassid").style.display = "none";
-    var node = document.getElementById("ssid");
-    node.style.display = "inline";
-    while (node.hasChildNodes()) {
-        node.removeChild(node.lastChild);
-    }
+	websock.send("{\"command\":\"scan\"}");
+	document.getElementById("scanb").innerHTML = "...";
+	document.getElementById("stassid").style.display = "none";
+	var node = document.getElementById("ssid");
+	node.style.display = "inline";
+	while (node.hasChildNodes()) {
+		node.removeChild(node.lastChild);
+	}
 }
 
 function saveConf() {
@@ -46,34 +46,34 @@ function saveConf() {
 		alert("Administrator Password cannot be empty");
 		return;
 	}
-    var ssid;
-    if (document.getElementById("stassid").style.display === "none") {
-        var b = document.getElementById("ssid");
-        ssid = b.options[b.selectedIndex].value;
-    } else {
-        ssid = document.getElementById("stassid").value;
-    }
+	var ssid;
+	if (document.getElementById("stassid").style.display === "none") {
+		var b = document.getElementById("ssid");
+		ssid = b.options[b.selectedIndex].value;
+	} else {
+		ssid = document.getElementById("stassid").value;
+	}
 	var wifimode = "0";
 	if (document.getElementById("wifimodeap").checked) {
 		wifimode = "1";
 	}
-    var datatosend = {};
-    datatosend.command = "configfile";
+	var datatosend = {};
+	datatosend.command = "configfile";
 	datatosend.auth_pass = adminpass;
 	datatosend.wifi_hostname = document.getElementById("hstname").value;
-    datatosend.rfid_gain = document.getElementById("gain").value;
-    datatosend.relay_time = document.getElementById("delay").value;
+	datatosend.rfid_gain = document.getElementById("gain").value;
+	datatosend.relay_time = document.getElementById("delay").value;
 	datatosend.ap_ssid = document.getElementById("apssid").value;
 	datatosend.ap_pass = document.getElementById("appass").value;
 	datatosend.sta_ssid = ssid;
-    datatosend.sta_pass = document.getElementById("stapass").value;
+	datatosend.sta_pass = document.getElementById("stapass").value;
 	datatosend.wifimode = wifimode;
-    websock.send(JSON.stringify(datatosend));
+	websock.send(JSON.stringify(datatosend));
 	location.reload();
 }
 
 function testRelay() {
-    websock.send("{\"command\":\"testrelay\"}");
+	websock.send("{\"command\":\"testrelay\"}");
 }
 
 function backupuser() {
@@ -174,7 +174,7 @@ function restore1by1(n, uid, user, acc, timed, validdate, len) {
 		if (n === len) {
 			document.getElementById("dynamic").innerHTML = "Completed";
 		}
-	}, 100 * n);
+	}, 200 * n);
 }
 
 function refreshStats() {
@@ -201,14 +201,14 @@ function listStats(obj) {
 function clearLog() {
 	websock.send("{\command\":\"clearlog\"}");
 	var x = confirm("This will remove all logs. Are you sure?");
-    if (x) {
-        //var jsontosend = "{\"uid\":\"" + e.id + "\",\"command\":\"remove\"}";
-        //websock.send(jsontosend);
-    }
+	if (x) {
+		//var jsontosend = "{\"uid\":\"" + e.id + "\",\"command\":\"remove\"}";
+		//websock.send(jsontosend);
+	}
 }
 
 function start() {
-    websock = new WebSocket("ws://" + window.location.hostname + "/ws");
+	websock = new WebSocket("ws://" + window.location.hostname + "/ws");
 	websock.onopen = function(evt) {
 		websock.send("{\"command\":\"getconf\"}");
 		document.getElementById("loading-img").style.display = "none";

@@ -36,31 +36,31 @@ function sortTable() {
 }
 
 function fadeOutIn(elem, speed) {
-    if (!elem.style.opacity) {
-        elem.style.opacity = 1;
-    } // end if
-    var outInterval = setInterval(function() {
-        elem.style.opacity -= 0.02;
-        if (elem.style.opacity <= 0) {
-            clearInterval(outInterval);
-            var inInterval = setInterval(function() {
-                elem.style.opacity = Number(elem.style.opacity) + 0.02;
-                if (elem.style.opacity >= 1) {
-                    clearInterval(inInterval);
+	if (!elem.style.opacity) {
+		elem.style.opacity = 1;
+	} // end if
+	var outInterval = setInterval(function() {
+		elem.style.opacity -= 0.02;
+		if (elem.style.opacity <= 0) {
+			clearInterval(outInterval);
+			var inInterval = setInterval(function() {
+				elem.style.opacity = Number(elem.style.opacity) + 0.02;
+				if (elem.style.opacity >= 1) {
+					clearInterval(inInterval);
 				}
-            }, speed / 50);
-        } // end if
-    }, speed / 50);
+			}, speed / 50);
+		} // end if
+	}, speed / 50);
 }
 
 function listSCAN(obj) {
-    var isKnown = obj.known;
-    var uid = obj.uid;
-    var uidUP = obj.uid.toUpperCase();
-    document.getElementById("uidinp").value = uidUP;
-    document.getElementById("typeinp").value = obj.type;
-    document.getElementById("username").value = obj.user;
-    document.getElementById("access").value = obj.access;
+	var isKnown = obj.known;
+	var uid = obj.uid;
+	var uidUP = obj.uid.toUpperCase();
+	document.getElementById("uidinp").value = uidUP;
+	document.getElementById("typeinp").value = obj.type;
+	document.getElementById("username").value = obj.user;
+	document.getElementById("access").value = obj.access;
 	document.getElementById("validdate").value = obj.validDate;
 	var ref = document.getElementById("buttonnormal");
 	var ref2 = document.getElementById("rembuttonnormal");
@@ -76,25 +76,25 @@ function listSCAN(obj) {
 		document.getElementById("timetablecol").style.display = "none";
 		clearTimeData();
 	}
-    ref.style.display = "block";
-    if (isKnown === 1) {
-        ref.dep = uid;
-        ref.className = "btn btn-warning btn-sm";
-        ref.onclick = function() {
-            update(this);
-        };
-        ref.textContent = "Update";
+	ref.style.display = "block";
+	if (isKnown === 1) {
+		ref.dep = uid;
+		ref.className = "btn btn-warning btn-sm";
+		ref.onclick = function() {
+			update(this);
+		};
+		ref.textContent = "Update";
 		ref2.style.display = "block";
-    } else {
-        ref.dep = uid;
-        ref.className = "btn btn-success btn-sm";
-        ref.onclick = function() {
-            update(this);
-        };
-        ref.textContent = "Add";
+	} else {
+		ref.dep = uid;
+		ref.className = "btn btn-success btn-sm";
+		ref.onclick = function() {
+			update(this);
+		};
+		ref.textContent = "Add";
 		ref2.style.display = "none";
-    }
-    fadeOutIn(document.getElementById("fade"), 250);
+	}
+	fadeOutIn(document.getElementById("fade"), 250);
 	fadeOutIn(document.getElementById("timetable"), 250);
 }
 
@@ -110,36 +110,36 @@ function del() {
 }
 
 function update(e) {
-    var datatosend = {};
-    datatosend.command = "userfile";
-    datatosend.uid = document.getElementById("uidinp").value.toLowerCase();
-    datatosend.user = document.getElementById("username").value;
-    datatosend.haveAcc = document.getElementById("access").value;
+	var datatosend = {};
+	datatosend.command = "userfile";
+	datatosend.uid = document.getElementById("uidinp").value.toLowerCase();
+	datatosend.user = document.getElementById("username").value;
+	datatosend.haveAcc = document.getElementById("access").value;
 	datatosend.timedAcc = getTimeString();
 	if (!checkDateFormat) return;
 	datatosend.validDate = document.getElementById("validdate").value;
-    websock.send(JSON.stringify(datatosend));
-    websock.send("{\"command\":\"picclist\"}");
+	websock.send(JSON.stringify(datatosend));
+	websock.send("{\"command\":\"picclist\"}");
 }
 
 function addRowHandlers() {
-    var table = document.getElementById("tablebody");
-    var rows = table.getElementsByTagName("tr");
-    for (var i = 0; i < rows.length; i++) {
-        var currentRow = table.rows[i];
-        var createClickHandler =
-            function(row) {
-                return function() {
-                    document.getElementById("uidinp").value = row.getElementsByTagName("td")[0].innerHTML;
-                    document.getElementById("username").value = row.getElementsByTagName("td")[1].innerHTML;
-                    document.getElementById("typeinp").value = "";
-                    if (row.getElementsByTagName("td")[2].innerHTML == "Infinite") {
-                        document.getElementById("access").value = "1";
+	var table = document.getElementById("tablebody");
+	var rows = table.getElementsByTagName("tr");
+	for (var i = 0; i < rows.length; i++) {
+		var currentRow = table.rows[i];
+		var createClickHandler =
+			function(row) {
+				return function() {
+					document.getElementById("uidinp").value = row.getElementsByTagName("td")[0].innerHTML;
+					document.getElementById("username").value = row.getElementsByTagName("td")[1].innerHTML;
+					document.getElementById("typeinp").value = "";
+					if (row.getElementsByTagName("td")[2].innerHTML == "Infinite") {
+						document.getElementById("access").value = "1";
 						document.getElementById("timetablecol").style.display = "none";
-                    } else if (row.getElementsByTagName("td")[2].innerHTML == "No access"){
-                        document.getElementById("access").value = "0";
+					} else if (row.getElementsByTagName("td")[2].innerHTML == "No access"){
+						document.getElementById("access").value = "0";
 						document.getElementById("timetablecol").style.display = "none";
-                    } else if (row.getElementsByTagName("td")[2].innerHTML == "Timed") {
+					} else if (row.getElementsByTagName("td")[2].innerHTML == "Timed") {
 						document.getElementById("access").value = "2";
 						document.getElementById("timetablecol").style.display = "block";
 						if (document.getElementById("buttonnormal").style.display == "block") document.getElementById("buttonnormal").style.display = "none";
@@ -147,7 +147,7 @@ function addRowHandlers() {
 						parseTimeData(row.getElementsByTagName("td")[3].innerHTML);
 					}
 					document.getElementById("validdate").value = row.getElementsByTagName("td")[4].innerHTML;
-                    var ref = document.getElementById("buttonnormal");
+					var ref = document.getElementById("buttonnormal");
 					var ref2 = document.getElementById("rembuttonnormal");
 					if (document.getElementById("access").value == 2) {
 						ref = document.getElementById("buttontimetable");
@@ -155,33 +155,33 @@ function addRowHandlers() {
 					}
 					ref.style.display = "block";
 					ref2.style.display = "block";
-                    ref.dep = document.getElementById("uidinp").value.toLowerCase();
-                    ref.className = "btn btn-warning btn-sm";
-                    ref.onclick = function() {
-                        update(this);
-                    };
-                    ref.textContent = "Update";
-                };
-            };
-        currentRow.onclick = createClickHandler(currentRow);
-    }
+					ref.dep = document.getElementById("uidinp").value.toLowerCase();
+					ref.className = "btn btn-warning btn-sm";
+					ref.onclick = function() {
+						update(this);
+					};
+					ref.textContent = "Update";
+				};
+			};
+		currentRow.onclick = createClickHandler(currentRow);
+	}
 }
 
 function listknownPICC(obj) {
-    var table = document.getElementById("knowntable").getElementsByTagName("tbody")[0];
-    for (var i = 0; i < obj.piccs.length; i++) {
-        var x = obj.piccs[i];
-        x = x.substring(3);
-        var upper = x.toUpperCase();
-        var row = table.insertRow(table.rows[0]);
-        row.className = "success";
-        row.id = x;
-        var cell1 = row.insertCell(0);
-        cell1.innerHTML = upper;
-        var cell2 = row.insertCell(1);
-        cell2.innerHTML = obj.users[i];
-        var cell3 = row.insertCell(2);
-        switch(obj.access[i]){
+	var table = document.getElementById("knowntable").getElementsByTagName("tbody")[0];
+	for (var i = 0; i < obj.piccs.length; i++) {
+		var x = obj.piccs[i];
+		x = x.substring(3);
+		var upper = x.toUpperCase();
+		var row = table.insertRow(table.rows[0]);
+		row.className = "success";
+		row.id = x;
+		var cell1 = row.insertCell(0);
+		cell1.innerHTML = upper;
+		var cell2 = row.insertCell(1);
+		cell2.innerHTML = obj.users[i];
+		var cell3 = row.insertCell(2);
+		switch(obj.access[i]){
 			case 0:
 				cell3.innerHTML = "No access";
 				break;
@@ -198,14 +198,14 @@ function listknownPICC(obj) {
 		var cell5 = row.insertCell(4);
 		cell5.innerHTML = obj.validDate[i];
 		cell5.style.display = "none";
-        if (obj.access[i] == 1) {
-            row.className = "success";
-        } else if (obj.access[i] == 0) {
-            row.className = "warning";
-        } else if (obj.access[i] == 2) {
+		if (obj.access[i] == 1) {
+			row.className = "success";
+		} else if (obj.access[i] == 0) {
+			row.className = "warning";
+		} else if (obj.access[i] == 2) {
 			row.className = "info";
 		}
-    }
+	}
 }
 
 function showTimeMenu() {
@@ -405,15 +405,15 @@ function getTimeString() {
 	var timeInputs = ["checkSunday","fromSunday","untillSunday","checkMonday","fromMonday","untillMonday","checkTuesday","fromTuesday","untillTuesday","checkWednesday","fromWednesday","untillWednesday","checkThursday","fromThursday","untillThursday","checkFriday","fromFriday","untillFriday","checkSaturday","fromSaturday","untillSaturday"];
 	var timeString = "";
 	for (var i = 0; i < timeInputs.length; i += 3) {
-	  if (document.getElementById(timeInputs[i]).checked) {
-	    var ref1 = document.getElementById(timeInputs[i+1]);
-			var ref2 = document.getElementById(timeInputs[i+2]);
-	    timeString += ((i/3)+"_")
-	    if (ref1.value == "") timeString += ("00:00-");
-	    else timeString += (document.getElementById(timeInputs[i+1]).value + "-");
-			if (ref2.value == "") timeString += ("23:59 ");
-	    else timeString += (document.getElementById(timeInputs[i+2]).value + " ");
-	  }
+		if (document.getElementById(timeInputs[i]).checked) {
+			var ref1 = document.getElementById(timeInputs[i+1]);
+				var ref2 = document.getElementById(timeInputs[i+2]);
+			timeString += ((i/3)+"_")
+			if (ref1.value == "") timeString += ("00:00-");
+			else timeString += (document.getElementById(timeInputs[i+1]).value + "-");
+				if (ref2.value == "") timeString += ("23:59 ");
+			else timeString += (document.getElementById(timeInputs[i+2]).value + " ");
+		}
 	}
 	timeString = timeString.slice(0, -1); 
 	parseTimeData(timeString);
@@ -421,29 +421,29 @@ function getTimeString() {
 }
 
 function start() {
-    websock = new WebSocket("ws://" + window.location.hostname + "/ws");
-    websock.onopen = function(evt) {
-        websock.send("{\"command\":\"picclist\"}");
-    };
-    websock.onclose = function(evt) {
-		setTimeout(function(){start()}, 5000);
-    };
-    websock.onerror = function(evt) {
-        console.log(evt);
-    };
-    websock.onmessage = function(evt) {
-        var obj = JSON.parse(evt.data);
-        if (obj.command === "piccscan") {
-            listSCAN(obj);
-        } else if (obj.command === "picclist") {
-            var node = document.getElementById("tablebody");
-            while (node.hasChildNodes()) {
-                node.removeChild(node.lastChild);
-            }
-            document.getElementById("loading-img").style.display = "none";
-            listknownPICC(obj);
-            sortTable();
-            addRowHandlers();
-        }
-    };
+	websock = new WebSocket("ws://" + window.location.hostname + "/ws");
+	websock.onopen = function(evt) {
+		websock.send("{\"command\":\"picclist\"}");
+	};
+	websock.onclose = function(evt) {
+		
+	};
+	websock.onerror = function(evt) {
+		console.log(evt);
+	};
+	websock.onmessage = function(evt) {
+		var obj = JSON.parse(evt.data);
+		if (obj.command === "piccscan") {
+			listSCAN(obj);
+		} else if (obj.command === "picclist") {
+			var node = document.getElementById("tablebody");
+			while (node.hasChildNodes()) {
+				node.removeChild(node.lastChild);
+			}
+			document.getElementById("loading-img").style.display = "none";
+			listknownPICC(obj);
+			sortTable();
+			addRowHandlers();
+		}
+	};
 }

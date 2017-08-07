@@ -1,21 +1,21 @@
 /* ------------------ RFID ESP Door lock ---------------
    
    wiring the MFRC522 to ESP8266 (ESP-12)
-	RST     = GPIO5
+	RST	 = GPIO5
 	SDA(SS) = GPIO4 
-	MOSI    = GPIO13
-	MISO    = GPIO12
-	SCK     = GPIO14
-	GND     = GND
-	3.3V    = 3.3V
+	MOSI	= GPIO13
+	MISO	= GPIO12
+	SCK	 = GPIO14
+	GND	 = GND
+	3.3V	= 3.3V
    ----------------------------------------------------- */
 
 /* ------------------ Includes ------------------------- */
 #include <ESP8266WiFi.h>		// Base of the whole project
-#include <ESP8266mDNS.h>        // Zero-config Library (Bonjour, Avahi) http://esp-rfid.local
+#include <ESP8266mDNS.h>		// Zero-config Library (Bonjour, Avahi) http://esp-rfid.local
 #include <DNSServer.h>			// Used for captive portal
-#include <WiFiUdp.h>            // Library for manipulating UDP packets which is used by NTP Client to get Timestamps
-#include <NTPClient.h>          // To timestamp RFID scans we get Unix Time from NTP Server
+#include <WiFiUdp.h>			// Library for manipulating UDP packets which is used by NTP Client to get Timestamps
+#include <NTPClient.h>		  // To timestamp RFID scans we get Unix Time from NTP Server
 #include <SPI.h>				// SPI library to communicate with the peripherals as well as SPIFFS
 #include <MFRC522.h>			// RFID library
 #include <FS.h>					// SPIFFS Library for access to the onboard storage
@@ -78,27 +78,27 @@ extern "C" uint32_t _SPIFFS_end;
 
 /* ------------------ Setup ---------------------------- */
 void setup() {
-	Serial.begin(115200);    // Initialize serial communications
+	Serial.begin(115200);	// Initialize serial communications
 	Serial.println();
-  	Serial.println(F("[ INFO ] ESP RFID v0.2"));
+	Serial.println(F("[ INFO ] ESP RFID v0.2"));
 
-  	// Start SPIFFS filesystem
-  	SPIFFS.begin();
+	// Start SPIFFS filesystem
+	SPIFFS.begin();
 
-  	pinMode(relayPin, OUTPUT);
-  	pinMode(redLed, OUTPUT);
-  	pinMode(blueLed, OUTPUT);
-  	digitalWrite(relayPin, LOW);
+	pinMode(relayPin, OUTPUT);
+	pinMode(redLed, OUTPUT);
+	pinMode(blueLed, OUTPUT);
+	digitalWrite(relayPin, LOW);
 
-  	if (loadConfiguration()) Serial.println(F("[ INFO ] Loaded configuration"));
-  	else Serial.println(F("[ WARN ] Failed to load configuration"));
+	if (loadConfiguration()) Serial.println(F("[ INFO ] Loaded configuration"));
+	else Serial.println(F("[ WARN ] Failed to load configuration"));
 
-  	// Start NTP Client
-  	timeClient.setTimeOffset(timeZone * 3600); //Timezone offset
-  	if (WiFi.status() == WL_CONNECTED)
-  		timeClient.begin();
+	// Start NTP Client
+	timeClient.setTimeOffset(timeZone * 3600); //Timezone offset
+	if (WiFi.status() == WL_CONNECTED)
+		timeClient.begin();
 
-	if (!SD.begin(SD_SS)) {
+	if (!SD.begin(SD_SS,SPI_QUARTER_SPEED)) {
 		SDAvailable = false;
 		Serial.println(F("[ INFO ] SD Card failed to connect or not present"));
 	}
@@ -107,7 +107,26 @@ void setup() {
 		Serial.println(F("[ INFO ] SD Card initialized"));
 	}
 
-	turnOnLed(blueLed);  	
+	if (SDAvailable) {
+		Serial.print(F("[ INFO ] SD Card type: "));
+		switch (SD.type()) {
+			case SD_CARD_TYPE_SD1:
+				Serial.println("SD1");
+				break;
+			case SD_CARD_TYPE_SD2:
+				Serial.println("SD2");
+				break;
+			case SD_CARD_TYPE_SDHC:
+				Serial.println("SDHC");
+				break;
+			default:
+				Serial.println("Unknown");
+		  }
+		Serial.print(F("[ INFO ] SD Card Fat Type: FAT"));
+		Serial.println(SD.fatType());
+	}
+
+	turnOnLed(blueLed);
 }
 
 /* ------------------ Main loop ------------------------ */
@@ -148,25 +167,25 @@ void loop() {
 /* ------------------ RFID Functions ------------------- */
 // RFID Specific Loop
 void rfidloop() {
-  	//If a new PICC placed to RFID reader continue
-  	if ( ! mfrc522.PICC_IsNewCardPresent()) {
-    	delay(50);
-    	return;
-  	}
-  	//Since a PICC is placed get Serial (UID) and continue
-  	if ( ! mfrc522.PICC_ReadCardSerial()) {
-    	delay(50);
-    	return;
-  	}
-  	// We got UID tell PICC to stop responding
-  	mfrc522.PICC_HaltA();
+	//If a new PICC placed to RFID reader continue
+	if ( ! mfrc522.PICC_IsNewCardPresent()) {
+		delay(50);
+		return;
+	}
+	//Since a PICC is placed get Serial (UID) and continue
+	if ( ! mfrc522.PICC_ReadCardSerial()) {
+		delay(50);
+		return;
+	}
+	// We got UID tell PICC to stop responding
+	mfrc522.PICC_HaltA();
 
 	// There are Mifare PICCs which have 4 byte or 7 byte UID
 	// Get PICC's UID and store on a variable
 	Serial.print(F("[ INFO ] PICC's UID: "));
 	String uid = "";
 	for (int i = 0; i < mfrc522.uid.size; ++i) {
-	    uid += String(mfrc522.uid.uidByte[i], HEX);
+		uid += String(mfrc522.uid.uidByte[i], HEX);
 	}
 	Serial.print(uid);
 	// Get PICC type
@@ -178,6 +197,9 @@ void rfidloop() {
 	// If we know the PICC we need to know if its User have an Access
 	int haveAcc = 0;  // First assume User do not have access
 	String timedAccess = "";
+	//Log functionality
+	bool gaveAccess = false;
+	String logUsername = "unknown";
 	// Prepend /P/ on filename so we distinguish UIDs from the other files
 	filename = "/P/";
 	filename += uid;
@@ -185,21 +207,22 @@ void rfidloop() {
 	fs::File f = SPIFFS.open(filename, "r");
 	// Check if we could find it above function returns true if the file is exist
 	if (f) {
-	    isKnown = 1; // we found it and label it as known
-	    // Now we need to read contents of the file to parse JSON object contains Username and Access Status
-	    size_t size = f.size();
-	    // Allocate a buffer to store contents of the file.
-	    std::unique_ptr<char[]> buf(new char[size]);
-	    // We don't use String here because ArduinoJson library requires the input
-	    // buffer to be mutable. If you don't use ArduinoJson, you may as well
-	    // use configFile.readString instead.
-	    f.readBytes(buf.get(), size);
-	    DynamicJsonBuffer jsonBuffer;
-	    JsonObject& json = jsonBuffer.parseObject(buf.get());
-	    // Check if we succesfully parse JSON object
-	    if (json.success()) {
-	    	// Get username Access Status
+		isKnown = 1; // we found it and label it as known
+		// Now we need to read contents of the file to parse JSON object contains Username and Access Status
+		size_t size = f.size();
+		// Allocate a buffer to store contents of the file.
+		std::unique_ptr<char[]> buf(new char[size]);
+		// We don't use String here because ArduinoJson library requires the input
+		// buffer to be mutable. If you don't use ArduinoJson, you may as well
+		// use configFile.readString instead.
+		f.readBytes(buf.get(), size);
+		DynamicJsonBuffer jsonBuffer;
+		JsonObject& json = jsonBuffer.parseObject(buf.get());
+		// Check if we succesfully parse JSON object
+		if (json.success()) {
+			// Get username Access Status
 			String username = json["user"];
+			logUsername = username;
 			haveAcc = json["haveAcc"];
 			String validdate = json["validDate"];
 			bool isValid = false;
@@ -221,16 +244,18 @@ void rfidloop() {
 			else isValid = true;
 			if (isValid) {
 				if (haveAcc == 1) {
+					gaveAccess = true;
 					allowAccess();
 				}
 				else if (haveAcc == 0) {
+					gaveAccess = false;
 					denyAccess();
 				}
 				else if (haveAcc == 2) {
 					//Check timed access
 					// 0:sunday, 1:monday etc
 					//Format: (0_12:00-24:00 1_08:00-16:00)
-	        		const char* timedAccessBuffer = json["timedAcc"];
+					const char* timedAccessBuffer = json["timedAcc"];
 					timedAccess = String(timedAccessBuffer);
 					int dayCount = (timedAccess.length()/13);
 					int allowedDays[dayCount];
@@ -253,17 +278,19 @@ void rfidloop() {
 						String fromTime = timedAccess.substring((checkTimeOnPos*14) + 2,(checkTimeOnPos*14) + 7);
 						String untillTime = timedAccess.substring((checkTimeOnPos*14) + 8,(checkTimeOnPos*14) + 13);
 						int currentHour = timeClient.getHours(), currentMinute = timeClient.getMinutes();
-						if ((fromTime.substring(0,2).toInt()) < currentHour && (untillTime.substring(0,2).toInt()) > currentHour) allowAccess(); //Within the hours
-						else if ((fromTime.substring(0,2).toInt()) == currentHour && (fromTime.substring(3).toInt()) < currentMinute) allowAccess(); //Same hour as from time check the minutes
-						else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) allowAccess(); //Same hour as untill time check the minutes
-						else denyAccess();
+						if ((fromTime.substring(0,2).toInt()) < currentHour && (untillTime.substring(0,2).toInt()) > currentHour) { allowAccess(); gaveAccess = true; }//Within the hours
+						else if ((fromTime.substring(0,2).toInt()) == currentHour && (fromTime.substring(3).toInt()) < currentMinute) { allowAccess(); gaveAccess = true; }//Same hour as from time check the minutes
+						else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) { allowAccess(); gaveAccess = true; }//Same hour as untill time check the minutes
+						else { denyAccess(); gaveAccess = false; }
 					}
 					else {
+						gaveAccess = false;
 						denyAccess();
 					}
 				}
 			}
 			else {
+				gaveAccess = false;
 				denyAccess();
 			}
 			// Also inform Administrator Portal
@@ -288,19 +315,20 @@ void rfidloop() {
 			size_t len = root.measureLength();
 			AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
 			if (buffer) {
-        		root.printTo((char *)buffer->get(), len + 1);
-        		ws.textAll(buffer);
-      		}
-    	}
-    	else {
-      		Serial.println("");
-      		Serial.println(F("[ WARN ] Failed to parse User Data"));
-    	}
-    	f.close();
-  	}
-  	else {
+				root.printTo((char *)buffer->get(), len + 1);
+				ws.textAll(buffer);
+			  }
+		}
+		else {
+			Serial.println("");
+			Serial.println(F("[ WARN ] Failed to parse User Data"));
+		}
+	f.close();
+	}
+	else {
 		// If we don't know the UID, inform Administrator Portal so admin can give access or add it to database
 		Serial.print(" = unknown PICC");
+		gaveAccess = false;
 		denyAccess();
 		DynamicJsonBuffer jsonBuffer;
 		JsonObject& root = jsonBuffer.createObject();
@@ -318,8 +346,13 @@ void rfidloop() {
 			root.printTo((char *)buffer->get(), len + 1);
 			ws.textAll(buffer);
 		}
-  	}
-  	// So far got we got UID of Scanned RFID Tag, checked it if it's on the database and access status, informed Administrator Portal
+	}
+	// So far got we got UID of Scanned RFID Tag, checked it if it's on the database and access status, informed Administrator Portal
+	String dataString = timeClient.getFormattedTime() + "," + uid + "," + logUsername + "," + gaveAccess;
+	String logfile = getDate();
+	logfile.remove(7,1);
+	logfile.remove(4,1);
+	createLog(dataString,logfile);
 }
 
 void allowAccess() {
@@ -327,7 +360,7 @@ void allowAccess() {
 	previousMillis = millis();
 	Serial.println(" has access");
 }
-
+	
 void denyAccess() {
 	turnOnLed(redLed);
 	denyAcc = true;
@@ -337,245 +370,245 @@ void denyAccess() {
 
 // Configure RFID Hardware
 void setupRFID(int rfid_ss, int rfid_rst, int rfid_gain) {
- 	SPI.begin();           // MFRC522 Hardware uses SPI protocol
- 	mfrc522.PCD_Init(rfid_ss, rfid_rst);    // Initialize MFRC522 Hardware
-  	// Set RFID Hardware Antenna Gain
-  	// This may not work with some boards
-  	mfrc522.PCD_SetAntennaGain(rfid_gain);
-  	Serial.printf("[ INFO ] RFID SS_PIN: %u and Gain Factor: %u", rfid_ss, rfid_gain);
-  	Serial.println("");
-  	ShowReaderDetails(); // Show details of PCD - MFRC522 Card Reader details
+	SPI.begin();		   // MFRC522 Hardware uses SPI protocol
+	mfrc522.PCD_Init(rfid_ss, rfid_rst);	// Initialize MFRC522 Hardware
+	// Set RFID Hardware Antenna Gain
+	// This may not work with some boards
+	mfrc522.PCD_SetAntennaGain(rfid_gain);
+	Serial.printf("[ INFO ] RFID SS_PIN: %u and Gain Factor: %u", rfid_ss, rfid_gain);
+	Serial.println("");
+	ShowReaderDetails(); // Show details of PCD - MFRC522 Card Reader details
 }
 
 void ShowReaderDetails() {
-  	// Get the MFRC522 software version
-  	byte v = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
-  	Serial.print(F("[ INFO ] MFRC522 Version: 0x"));
-  	Serial.print(v, HEX);
-  	if (v == 0x91)
-    	Serial.print(F(" = v1.0"));
-  	else if (v == 0x92)
-    	Serial.print(F(" = v2.0"));
-  	else if (v == 0x88)
-    	Serial.print(F(" = clone"));
-  	else
-    	Serial.print(F(" (unknown)"));
-  	Serial.println("");
-  	// When 0x00 or 0xFF is returned, communication probably failed
-  	if ((v == 0x00) || (v == 0xFF)) {
-    	Serial.println(F("[ WARN ] Communication failure, check if MFRC522 properly connected"));
-  	}
+	// Get the MFRC522 software version
+	byte v = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+	Serial.print(F("[ INFO ] MFRC522 Version: 0x"));
+	Serial.print(v, HEX);
+	if (v == 0x91)
+		Serial.print(F(" = v1.0"));
+	else if (v == 0x92)
+		Serial.print(F(" = v2.0"));
+	else if (v == 0x88)
+		Serial.print(F(" = clone"));
+	else
+		Serial.print(F(" (unknown)"));
+	Serial.println("");
+	// When 0x00 or 0xFF is returned, communication probably failed
+	if ((v == 0x00) || (v == 0xFF)) {
+		Serial.println(F("[ WARN ] Communication failure, check if MFRC522 properly connected"));
+	}
 }
 
 /* ------------------ WiFi Functions ------------------- */
 // Try to connect Wi-Fi
 bool connectSTA(const char* sta_ssid, const char* sta_pass) {
-  	WiFi.mode(WIFI_STA);
-  	// First connect to a wi-fi network
-  	WiFi.begin(sta_ssid, sta_pass);
-  	// Inform user we are trying to connect
-  	Serial.print(F("[ INFO ] Trying to connect WiFi: "));
-  	Serial.print(sta_ssid);
-  	// We try it for 20 seconds and give up on if we can't connect
-  	unsigned long now = millis();
-  	uint8_t timeout = 20; // define when to time out in seconds
-  	// Wait until we connect or 20 seconds pass
-  	do {
-    	if (WiFi.status() == WL_CONNECTED) {
-      		break;
-    	}
-    	delay(500);
-    	Serial.print(F("."));
-  	}
-  	while (millis() - now < timeout * 1000);
-  	// We now out of the while loop, either time is out or we connected. check what happened
-  	if (WiFi.status() == WL_CONNECTED) { // Assume time is out first and check
-    	Serial.println();
-    	Serial.print(F("[ INFO ] Client IP address: ")); // Great, we connected, inform
-    	Serial.println(WiFi.localIP());
-    	return true;
-  	}
-  	else { // We couln't connect, time is out, inform
-    	Serial.println();
-    	Serial.println(F("[ WARN ] Couldn't connect in time"));
-    	return false;
-  	}
+	WiFi.mode(WIFI_STA);
+	// First connect to a wi-fi network
+	WiFi.begin(sta_ssid, sta_pass);
+	// Inform user we are trying to connect
+	Serial.print(F("[ INFO ] Trying to connect WiFi: "));
+	Serial.print(sta_ssid);
+	// We try it for 20 seconds and give up on if we can't connect
+	unsigned long now = millis();
+	uint8_t timeout = 20; // define when to time out in seconds
+	// Wait until we connect or 20 seconds pass
+	do {
+		if (WiFi.status() == WL_CONNECTED) {
+			break;
+		}
+		delay(500);
+		Serial.print(F("."));
+	}
+	while (millis() - now < timeout * 1000);
+	// We now out of the while loop, either time is out or we connected. check what happened
+	if (WiFi.status() == WL_CONNECTED) { // Assume time is out first and check
+		Serial.println();
+		Serial.print(F("[ INFO ] Client IP address: ")); // Great, we connected, inform
+		Serial.println(WiFi.localIP());
+		return true;
+	}
+	else { // We couln't connect, time is out, inform
+		Serial.println();
+		Serial.println(F("[ WARN ] Couldn't connect in time"));
+		return false;
+	}
 }
 
 // Fallback to AP Mode, so we can connect to ESP if there is no Internet connection
 bool setupAP(const char* ap_ssid, const char* ap_pass) {
-  	WiFi.mode(WIFI_AP);
-  	Serial.println(F("[ INFO ] Configuring access point... "));
-  	bool result = WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-  	Serial.print(F("[ INFO ] Captive portal setup: "));
-  	Serial.println(result ? "Ready" : "Failed!");
-  	Serial.print(F("[ INFO ] Setting up access point: "));
-  	result = WiFi.softAP(ap_ssid, ap_pass);
-  	Serial.println(result ? "Ready" : "Failed!");
-  	// Access Point IP
-  	IPAddress myIP = WiFi.softAPIP();
-  	inAPMode = true;
-  	Serial.print(F("[ INFO ] AP IP address: "));
-  	Serial.println(myIP);
-  	return result;
+	WiFi.mode(WIFI_AP);
+	Serial.println(F("[ INFO ] Configuring access point... "));
+	bool result = WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+	Serial.print(F("[ INFO ] Captive portal setup: "));
+	Serial.println(result ? "Ready" : "Failed!");
+	Serial.print(F("[ INFO ] Setting up access point: "));
+	result = WiFi.softAP(ap_ssid, ap_pass);
+	Serial.println(result ? "Ready" : "Failed!");
+	// Access Point IP
+	IPAddress myIP = WiFi.softAPIP();
+	inAPMode = true;
+	Serial.print(F("[ INFO ] AP IP address: "));
+	Serial.println(myIP);
+	return result;
 }
 
 boolean captivePortal(AsyncWebServerRequest *request) {
-  	if (!isIp(request->host()) ) {
-  		AsyncWebServerResponse *response = request->beginResponse(302,"text/plain","");
-    	response->addHeader("Location", String("http://" + ipToString(apIP)));
-    	request->send(response);
-    	return true;
-  	}
-  	return false;
+	if (!isIp(request->host()) ) {
+		AsyncWebServerResponse *response = request->beginResponse(302,"text/plain","");
+		response->addHeader("Location", String("http://" + ipToString(apIP)));
+		request->send(response);
+		return true;
+	}
+	return false;
 }
 
 boolean isIp(String str) {
-  	for (int i = 0; i < str.length(); i++) {
-    	int c = str.charAt(i);
-    	if (c != '.' && (c < '0' || c > '9')) {
-      		return false;
-    	}
-  	}
-  	return true;
+	for (int i = 0; i < str.length(); i++) {
+		int c = str.charAt(i);
+		if (c != '.' && (c < '0' || c > '9')) {
+			return false;
+		}
+	}
+	return true;
 }
 
 String ipToString(IPAddress ip) {
-  String res = "";
-  for (int i = 0; i < 3; i++) {
-    res += String((ip >> (8 * i)) & 0xFF) + ".";
-  }
-  res += String(((ip >> 8 * 3)) & 0xFF);
-  return res;
+	String res = "";
+	for (int i = 0; i < 3; i++) {
+		res += String((ip >> (8 * i)) & 0xFF) + ".";
+	}
+	res += String(((ip >> 8 * 3)) & 0xFF);
+	return res;
 }
 
 /* ------------------ SPIFFS Functions ----------------- */
 bool loadConfiguration() {
-  	fs::File configFile = SPIFFS.open("/auth/config.json", "r");
-  	if (!configFile) {
-    	Serial.println(F("[ WARN ] Failed to open config file"));
-    	return false;
-  	}
+	fs::File configFile = SPIFFS.open("/auth/config.json", "r");
+	if (!configFile) {
+		Serial.println(F("[ WARN ] Failed to open config file"));
+		return false;
+	}
 	size_t size = configFile.size();
-  	// Allocate a buffer to store contents of the file.
-  	std::unique_ptr<char[]> buf(new char[size]);
-  	// We don't use String here because ArduinoJson library requires the input
-  	// buffer to be mutable. If you don't use ArduinoJson, you may as well
-  	// use configFile.readString instead.
-  	configFile.readBytes(buf.get(), size);
+	// Allocate a buffer to store contents of the file.
+	std::unique_ptr<char[]> buf(new char[size]);
+	// We don't use String here because ArduinoJson library requires the input
+	// buffer to be mutable. If you don't use ArduinoJson, you may as well
+	// use configFile.readString instead.
+	configFile.readBytes(buf.get(), size);
 	DynamicJsonBuffer jsonBuffer;
-  	JsonObject& json = jsonBuffer.parseObject(buf.get());
-  	if (!json.success()) {
-    	Serial.println(F("[ WARN ] Failed to parse config file"));
-    	return false;
-  	}
+	JsonObject& json = jsonBuffer.parseObject(buf.get());
+	if (!json.success()) {
+		Serial.println(F("[ WARN ] Failed to parse config file"));
+		return false;
+	}
 
-  	//Webserver variables
-  	const char *admin_pass_buffer = json["auth_pass"];
-    admin_pass = String(admin_pass_buffer);
-  	auth_pass = const_cast<char*>(admin_pass.c_str());
+	//Webserver variables
+	const char *admin_pass_buffer = json["auth_pass"];
+	admin_pass = String(admin_pass_buffer);
+	auth_pass = const_cast<char*>(admin_pass.c_str());
 
-  	//Wifi variables
-  	const char *wifi_hostname = json["wifi_hostname"];
-  	const char *ap_ssid = json["ap_ssid"];
-  	const char *ap_pass = json["ap_pass"];
-  	const char *sta_ssid = json["sta_ssid"];
-  	const char *sta_pass = json["sta_pass"];
-  	int wifimode = json["wifimode"];
+	//Wifi variables
+	const char *wifi_hostname = json["wifi_hostname"];
+	const char *ap_ssid = json["ap_ssid"];
+	const char *ap_pass = json["ap_pass"];
+	const char *sta_ssid = json["sta_ssid"];
+	const char *sta_pass = json["sta_pass"];
+	int wifimode = json["wifimode"];
 
-  	//Hardware variables
-  	int rfidgain = json["rfid_gain"];
-  	activateTime = json["relay_time"];
-    
-  	configFile.close();
-  	
-  	setupRFID(MFRC522_SS,UINT8_MAX,rfidgain);
+	//Hardware variables
+	int rfidgain = json["rfid_gain"];
+	activateTime = json["relay_time"];
+	
+	configFile.close();
+	  
+	setupRFID(MFRC522_SS,UINT8_MAX,rfidgain);
 
-  	setupWebserver();
+	setupWebserver();
 
-  	WiFi.hostname(wifi_hostname);
-  	
-  	if (wifimode == 1) {
-    	Serial.println(F("[ INFO ] ESP-RFID is running in AP Mode "));
-    	if (!setupAP(ap_ssid, ap_pass)) return false;
-    }
-    else {
-    	if (!connectSTA(sta_ssid, sta_pass)){ // If unable to connect to WiFi setup Access point
-  			if (!setupAP(ap_ssid, ap_pass)) return false;
-  		}
-    }
+	WiFi.hostname(wifi_hostname);
+	  
+	if (wifimode == 1) {
+		Serial.println(F("[ INFO ] ESP-RFID is running in AP Mode "));
+		if (!setupAP(ap_ssid, ap_pass)) return false;
+	}
+	else {
+		if (!connectSTA(sta_ssid, sta_pass)){ // If unable to connect to WiFi setup Access point
+			if (!setupAP(ap_ssid, ap_pass)) return false;
+		  }
+	}
 
-  	// Start mDNS service so we can connect to http://esp-rfid.local (if Bonjour installed on Windows or Avahi on Linux)
-  	if (!MDNS.begin(wifi_hostname)) {
-   		Serial.println(F("Error setting up MDNS responder!"));
-  	}
-  	// Add Web Server service to mDNS
-  	MDNS.addService("http", "tcp", 80);
+	  // Start mDNS service so we can connect to http://esp-rfid.local (if Bonjour installed on Windows or Avahi on Linux)
+	if (!MDNS.begin(wifi_hostname)) {
+		Serial.println(F("Error setting up MDNS responder!"));
+	}
+	// Add Web Server service to mDNS
+	MDNS.addService("http", "tcp", 80);
 
-  	return true;
+	return true;
 }
 
 /* ------------------ Webserver Functions -------------- */
 void setupWebserver(){
 	// Start WebSocket Plug-in and handle incoming message on "onWsEvent" function
-  	server.addHandler(&ws);
-  	ws.onEvent(onWsEvent);
+	server.addHandler(&ws);
+	ws.onEvent(onWsEvent);
 
-  	//Setting up dns for the captive portal
-  	dnsServer.start(53, "*", apIP);
+	//Setting up dns for the captive portal
+	dnsServer.start(53, "*", apIP);
 
-  	// Configure web server
-  	// Add Text Editor (http://esp-rfid.local/edit) to Web Server. This feature likely will be dropped on final release.
-  	server.addHandler(new SPIFFSEditor("admin", admin_pass));
+	// Configure web server
+	// Add Text Editor (http://esp-rfid.local/edit) to Web Server. This feature likely will be dropped on final release.
+	server.addHandler(new SPIFFSEditor("admin", admin_pass));
 
-  	// Serve confidential files in /auth/ folder with a Basic HTTP authentication
-  	server.serveStatic("/auth/", SPIFFS, "/auth/").setDefaultFile("users.htm").setAuthentication("admin", auth_pass);
-  	// Serve all files in root folder
- 	server.serveStatic("/", SPIFFS, "/");
-  	// Handle what happens when requested web file couldn't be found
+	// Serve confidential files in /auth/ folder with a Basic HTTP authentication
+	server.serveStatic("/auth/", SPIFFS, "/auth/").setDefaultFile("users.htm").setAuthentication("admin", auth_pass);
+	// Serve all files in root folder
+	server.serveStatic("/", SPIFFS, "/");
+	// Handle what happens when requested web file couldn't be found
 
-  	// Simple Firmware Update Handler
-  	server.on("/auth/update", HTTP_POST, [](AsyncWebServerRequest * request) {
-    	shouldReboot = !Update.hasError();
-    	AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
-    	response->addHeader("Connection", "close");
-    	request->send(response);
-  	}, [](AsyncWebServerRequest * request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    if (!index) {
-    	Serial.printf("[ UPDT ] Firmware update started: %s\n", filename.c_str());
-      	Update.runAsync(true);
-      	if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
-        	Update.printError(Serial);
-      	}
-    }
-    if (!Update.hasError()) {
-      	if (Update.write(data, len) != len) {
-        	Update.printError(Serial);
-      	}
-    }
-    if (final) {
-      	if (Update.end(true)) {
-        	Serial.printf("[ UPDT ] Firmware update finished: %uB\n", index + len);
-      	} else {
-        	Update.printError(Serial);
-      	}
-    }
-  	});
+	// Simple Firmware Update Handler
+	server.on("/auth/update", HTTP_POST, [](AsyncWebServerRequest * request) {
+		shouldReboot = !Update.hasError();
+		AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
+		response->addHeader("Connection", "close");
+		request->send(response);
+	}, [](AsyncWebServerRequest * request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+	if (!index) {
+		Serial.printf("[ UPDT ] Firmware update started: %s\n", filename.c_str());
+		Update.runAsync(true);
+		if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000)) {
+			Update.printError(Serial);
+		}
+	}
+	if (!Update.hasError()) {
+		if (Update.write(data, len) != len) {
+			Update.printError(Serial);
+		}
+	}
+	if (final) {
+		if (Update.end(true)) {
+			Serial.printf("[ UPDT ] Firmware update finished: %uB\n", index + len);
+		} else {
+			Update.printError(Serial);
+		}
+	}
+	});
 
 	// Simple SPIFFs Update Handler
 	server.on("/auth/spiupdate", HTTP_POST, [](AsyncWebServerRequest * request) {
 		shouldReboot = !Update.hasError();
-	    AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
-	    response->addHeader("Connection", "close");
-	    request->send(response);
+		AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
+		response->addHeader("Connection", "close");
+		request->send(response);
 	}, [](AsyncWebServerRequest * request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
 	if (!index) {
-	    Serial.printf("[ UPDT ] SPIFFS update started: %s\n", filename.c_str());
-	    Update.runAsync(true);
-	    size_t spiffsSize = ((size_t) &_SPIFFS_end - (size_t) &_SPIFFS_start);
-	    if (!Update.begin(spiffsSize, U_SPIFFS)) {
-	    	Update.printError(Serial);
-	    }
+		Serial.printf("[ UPDT ] SPIFFS update started: %s\n", filename.c_str());
+		Update.runAsync(true);
+		size_t spiffsSize = ((size_t) &_SPIFFS_end - (size_t) &_SPIFFS_start);
+		if (!Update.begin(spiffsSize, U_SPIFFS)) {
+			Update.printError(Serial);
+		}
 	}
 	if (!Update.hasError()) {
 		if (Update.write(data, len) != len) {
@@ -585,203 +618,206 @@ void setupWebserver(){
 	if (final) {
 		if (Update.end(true)) {
 			Serial.printf("[ UPDT ] SPIFFS update finished: %uB\n", index + len);
-	    } else {
-	        Update.printError(Serial);
-	    }
+		} else {
+			Update.printError(Serial);
+		}
 	}
 	});
 
-  	server.onNotFound([](AsyncWebServerRequest *request) {
-    	if (captivePortal(request)) { // If captive portal redirect instead of displaying the error page.
-    		return;
-  		}
+	  server.onNotFound([](AsyncWebServerRequest *request) {
+		if (captivePortal(request)) { // If captive portal redirect instead of displaying the error page.
+			return;
+		}
   
-  		String message = "File Not Found\n\n";
-  		message += "URI: ";
-  		message += request->url();
-  		message += "\nMethod: ";
-  		message += ( request->method() == HTTP_GET ) ? "GET" : "POST";
-  		message += "\nArguments: ";
-  		message += request->args();
-  		message += "\n";
+		String message = "File Not Found\n\n";
+		message += "URI: ";
+		message += request->url();
+		message += "\nMethod: ";
+		message += ( request->method() == HTTP_GET ) ? "GET" : "POST";
+		message += "\nArguments: ";
+		message += request->args();
+		message += "\n";
 
-	  	for (uint8_t i = 0; i < request->args(); i++ ) {
-	    	message += " " + request->argName ( i ) + ": " + request->arg ( i ) + "\n";
-	  	}
-	  	
-	  	AsyncWebServerResponse *response = request->beginResponse(404,"text/plain",message);
-	  	response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-	  	response->addHeader("Pragma", "no-cache");
-	  	response->addHeader("Expires", "-1");
-	  	request->send(response); 
-    });
+		for (uint8_t i = 0; i < request->args(); i++ ) {
+			message += " " + request->argName ( i ) + ": " + request->arg ( i ) + "\n";
+		}
+		  
+		AsyncWebServerResponse *response = request->beginResponse(404,"text/plain",message);
+		response->addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+		response->addHeader("Pragma", "no-cache");
+		response->addHeader("Expires", "-1");
+		request->send(response); 
+	});
 
-  	// Start Web Server
-  	server.begin();
+	// Start Web Server
+	server.begin();
 }
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len) {
-  	if (type == WS_EVT_ERROR) {
-    	Serial.printf("[ WARN ] WebSocket[%s][%u] error(%u): %s\r\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
-  	}
-  	else if (type == WS_EVT_DATA) {
-    	AwsFrameInfo * info = (AwsFrameInfo*)arg;
-   	 	String msg = "";
+	if (type == WS_EVT_ERROR) {
+		Serial.printf("[ WARN ] WebSocket[%s][%u] error(%u): %s\r\n", server->url(), client->id(), *((uint16_t*)arg), (char*)data);
+	}
+	else if (type == WS_EVT_DATA) {
+		AwsFrameInfo * info = (AwsFrameInfo*)arg;
+			String msg = "";
 
-    	if (info->final && info->index == 0 && info->len == len) {
-      		//the whole message is in a single frame and we got all of it's data
-      		for (size_t i = 0; i < info->len; i++) {
-        		msg += (char) data[i];
-      	}
+		if (info->final && info->index == 0 && info->len == len) {
+			//the whole message is in a single frame and we got all of it's data
+			for (size_t i = 0; i < info->len; i++) {
+				msg += (char) data[i];
+			}
 
-      	// We should always get a JSON object (stringfied) from browser, so parse it
-      	DynamicJsonBuffer jsonBuffer;
-      	JsonObject& root = jsonBuffer.parseObject(msg);
-      	if (!root.success()) {
-        	Serial.println(F("[ WARN ] Couldn't parse WebSocket message"));
-        	return;
-      	}
+			// We should always get a JSON object (stringfied) from browser, so parse it
+			DynamicJsonBuffer jsonBuffer;
+			JsonObject& root = jsonBuffer.parseObject(msg);
+			if (!root.success()) {
+				Serial.println(F("[ WARN ] Couldn't parse WebSocket message"));
+				return;
+			}
 
-      	// Web Browser sends some commands, check which command is given
-      	const char * command = root["command"];
-      
-      	// Check whatever the command is and act accordingly
-      	if (strcmp(command, "remove")  == 0) {
-        	const char* uid = root["uid"];
-	        filename = "/P/";
-	        filename += uid;
-	        SPIFFS.remove(filename);
-      	}
-      	else if (strcmp(command, "configfile")  == 0) {
-        	fs::File f = SPIFFS.open("/auth/config.json", "w+");
-        	if (f) {
-          		root.prettyPrintTo(f);
-          		f.close();
-          		ESP.reset();
-        	}
-      	}
-      	else if (strcmp(command, "picclist")  == 0) {
-        	sendPICClist();
-      	}
-      	else if (strcmp(command, "status")  == 0) {
-        	sendStatus();
-      	}
-      	else if (strcmp(command, "userfile")  == 0) {
-        	const char* uid = root["uid"];
-        	filename = "/P/";
-        	filename += uid;
-        	fs::File f = SPIFFS.open(filename, "w+");
-        	// Check if we created the file
-        	if (f) {
-          		f.print(msg);
-          		f.close();
-        	}
-      	}
-      	else if (strcmp(command, "testrelay")  == 0) {
-        	activateRelay = true;
-        	previousMillis = millis();
-      	}
-      	else if (strcmp(command, "scan")  == 0) {
-	        WiFi.scanNetworksAsync(printScanResult);
-      	}
-      	else if (strcmp(command, "getconf")  == 0) {
-	        fs::File configFile = SPIFFS.open("/auth/config.json", "r");
-	        if (configFile) {
-	          	size_t len = configFile.size();
-	          	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-	          	if (buffer) {
-	            	configFile.readBytes((char *)buffer->get(), len + 1);
-	            	ws.textAll(buffer);
-	          	}
-	          	configFile.close();
-	        }
-      	}
-      	else if (strcmp(command, "loglist") ==0) {
+			// Web Browser sends some commands, check which command is given
+			const char * command = root["command"];
+		  
+			// Check whatever the command is and act accordingly
+			if (strcmp(command, "remove")  == 0) {
+				const char* uid = root["uid"];
+				filename = "/P/";
+				filename += uid;
+				SPIFFS.remove(filename);
+			}
+			else if (strcmp(command, "configfile")  == 0) {
+				fs::File f = SPIFFS.open("/auth/config.json", "w+");
+				if (f) {
+					root.prettyPrintTo(f);
+					f.close();
+					ESP.reset();
+				}
+			}
+			else if (strcmp(command, "picclist")  == 0) {
+				sendPICClist();
+			}
+			else if (strcmp(command, "status")  == 0) {
+				sendStatus();
+			}
+			else if (strcmp(command, "userfile")  == 0) {
+				const char* uid = root["uid"];
+				filename = "/P/";
+				filename += uid;
+				fs::File f = SPIFFS.open(filename, "w+");
+				// Check if we created the file
+				if (f) {
+					f.print(msg);
+					f.close();
+				}
+			}
+			else if (strcmp(command, "testrelay")  == 0) {
+				activateRelay = true;
+				previousMillis = millis();
+			}
+			else if (strcmp(command, "scan")  == 0) {
+				WiFi.scanNetworksAsync(printScanResult);
+			}
+			else if (strcmp(command, "getconf")  == 0) {
+				fs::File configFile = SPIFFS.open("/auth/config.json", "r");
+				if (configFile) {
+					size_t len = configFile.size();
+					AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+					if (buffer) {
+						configFile.readBytes((char *)buffer->get(), len + 1);
+						ws.textAll(buffer);
+					}
+					configFile.close();
+				}
+			}
+			else if (strcmp(command, "datelist")  == 0) {
+				listFiles();
+			}
+			else if (strcmp(command, "loglist") ==0) {
+				readLog(root["msg"]);
+			}
+			else if (strcmp(command, "clearlog") ==0) {
 
-      	}
-      	else if (strcmp(command, "clearlog") ==0) {
-
-      	}
-    }
-  }
+			}
+		}   
+	}
 }
 
 void sendPICClist() {
-  	Dir dir = SPIFFS.openDir("/P/");
-  	DynamicJsonBuffer jsonBuffer;
-  	JsonObject& root = jsonBuffer.createObject();
-  	root["command"] = "picclist";
+	Dir dir = SPIFFS.openDir("/P/");
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	root["command"] = "picclist";
 
-  	JsonArray& data = root.createNestedArray("piccs");
-  	JsonArray& data2 = root.createNestedArray("users");
-  	JsonArray& data3 = root.createNestedArray("access");
-  	JsonArray& data4 = root.createNestedArray("timedAcc");
-  	JsonArray& data5 = root.createNestedArray("validDate");
-  	while (dir.next()) {
-    	fs::File f = SPIFFS.open(dir.fileName(), "r");
-	    size_t size = f.size();
-	    // Allocate a buffer to store contents of the file.
-	    std::unique_ptr<char[]> buf(new char[size]);
-	    // We don't use String here because ArduinoJson library requires the input
-	    // buffer to be mutable. If you don't use ArduinoJson, you may as well
-	    // use configFile.readString instead.
-	    f.readBytes(buf.get(), size);
-	    DynamicJsonBuffer jsonBuffer2;
-	    JsonObject& json = jsonBuffer2.parseObject(buf.get());
-	    if (json.success()) {
-	      	String username = json["user"];
-	      	int haveAcc = json["haveAcc"];
-	      	String timedAccess = json["timedAcc"];
-	      	String validdate = json["validDate"];
-	      	data2.add(username);
-	      	data3.add(haveAcc);
-	      	data4.add(timedAccess);
-	      	data5.add(validdate);
-	    }
-	    data.add(dir.fileName());
-	    f.close();
-  	}
-  	size_t len = root.measureLength();
- 	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-  	if (buffer) {
-    	root.printTo((char *)buffer->get(), len + 1);
-    	ws.textAll(buffer);
-  	}
+	JsonArray& data = root.createNestedArray("piccs");
+	JsonArray& data2 = root.createNestedArray("users");
+	JsonArray& data3 = root.createNestedArray("access");
+	JsonArray& data4 = root.createNestedArray("timedAcc");
+	JsonArray& data5 = root.createNestedArray("validDate");
+	while (dir.next()) {
+		fs::File f = SPIFFS.open(dir.fileName(), "r");
+		size_t size = f.size();
+		// Allocate a buffer to store contents of the file.
+		std::unique_ptr<char[]> buf(new char[size]);
+		// We don't use String here because ArduinoJson library requires the input
+		// buffer to be mutable. If you don't use ArduinoJson, you may as well
+		// use configFile.readString instead.
+		f.readBytes(buf.get(), size);
+		DynamicJsonBuffer jsonBuffer2;
+		JsonObject& json = jsonBuffer2.parseObject(buf.get());
+		if (json.success()) {
+			String username = json["user"];
+			int haveAcc = json["haveAcc"];
+			String timedAccess = json["timedAcc"];
+			String validdate = json["validDate"];
+			data2.add(username);
+			data3.add(haveAcc);
+			data4.add(timedAccess);
+			data5.add(validdate);
+		}
+		data.add(dir.fileName());
+		f.close();
+	}
+	size_t len = root.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		root.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+	}
 }
 
 void sendStatus() {
-  	DynamicJsonBuffer jsonBuffer;
-  	JsonObject& root = jsonBuffer.createObject();
-  	root["command"] = "status";
-  	root["heap"] = ESP.getFreeHeap();
-  	root["chipid"] = String(ESP.getChipId(), HEX);
-  	root["cpu"] = ESP.getCpuFreqMHz();
-  	root["availsize"] = ESP.getFreeSketchSpace();
-  	root["ssid"] = (String)WiFi.SSID();
-  	root["ip"] = (String)WiFi.localIP()[0] + "." + (String)WiFi.localIP()[1] + "." + (String)WiFi.localIP()[2] + "." + (String)WiFi.localIP()[3];
-  	root["gateway"] = (String)WiFi.gatewayIP()[0] + "." + (String)WiFi.gatewayIP()[1] + "." + (String)WiFi.gatewayIP()[2] + "." + (String)WiFi.gatewayIP()[3];
-  	root["netmask"] = (String)WiFi.subnetMask()[0] + "." + (String)WiFi.subnetMask()[1] + "." + (String)WiFi.subnetMask()[2] + "." + (String)WiFi.subnetMask()[3];
-  	root["dns"] = (String)WiFi.dnsIP()[0] + "." + (String)WiFi.dnsIP()[1] + "." + (String)WiFi.dnsIP()[2] + "." + (String)WiFi.dnsIP()[3];
-  	root["mac"] = getMacAddress();
-  	size_t len = root.measureLength();
-  	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-  	if (buffer) {
-    	root.printTo((char *)buffer->get(), len + 1);
-    	ws.textAll(buffer);
-  	}
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	root["command"] = "status";
+	root["heap"] = ESP.getFreeHeap();
+	root["chipid"] = String(ESP.getChipId(), HEX);
+	root["cpu"] = ESP.getCpuFreqMHz();
+	root["availsize"] = ESP.getFreeSketchSpace();
+	root["ssid"] = (String)WiFi.SSID();
+	root["ip"] = (String)WiFi.localIP()[0] + "." + (String)WiFi.localIP()[1] + "." + (String)WiFi.localIP()[2] + "." + (String)WiFi.localIP()[3];
+	root["gateway"] = (String)WiFi.gatewayIP()[0] + "." + (String)WiFi.gatewayIP()[1] + "." + (String)WiFi.gatewayIP()[2] + "." + (String)WiFi.gatewayIP()[3];
+	root["netmask"] = (String)WiFi.subnetMask()[0] + "." + (String)WiFi.subnetMask()[1] + "." + (String)WiFi.subnetMask()[2] + "." + (String)WiFi.subnetMask()[3];
+	root["dns"] = (String)WiFi.dnsIP()[0] + "." + (String)WiFi.dnsIP()[1] + "." + (String)WiFi.dnsIP()[2] + "." + (String)WiFi.dnsIP()[3];
+	root["mac"] = getMacAddress();
+	size_t len = root.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		root.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+	}
 }
 
 String getMacAddress() {
 	uint8_t mac[6];
-    char macStr[18] = { 0 };
-    WiFi.macAddress(mac);
-    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    return String(macStr);
+	char macStr[18] = { 0 };
+	WiFi.macAddress(mac);
+	sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	return String(macStr);
 }
 
 // Send Scanned SSIDs to websocket clients as JSON object
 void printScanResult(int networksFound) {
-  	DynamicJsonBuffer jsonBuffer;
+	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
 	root["command"] = "ssidlist";
 	JsonArray& data = root.createNestedArray("ssid");
@@ -827,46 +863,89 @@ String getDate() {
 /* ------------------ Logging Functions ---------------- */
 bool createLog(String dataString, String filename) {
 	if (!SDAvailable) return false;
-	sd::File dataFile = SD.open(filename, FILE_WRITE);
+	sd::File dataFile = SD.open("Data/" + filename, FILE_WRITE);
 	if (dataFile) {
 		dataFile.println(dataString);
 		dataFile.close();
 		return true;
 	}
 	else {
-		Serial.println(F("[ WARN ] Error opening file on SD card"));
+		Serial.print(F("[ WARN ] Error opening file on SD card: "));
+		Serial.println(filename);
 		return false;
 	}
 }
 
 bool readLog(String filename) {
 	if (!SDAvailable) return false;
-	sd::File dataFile = SD.open(filename);
+	sd::File dataFile = SD.open("Data/" + filename);
 	if (!dataFile) {
-		Serial.println(F("[ WARN ] Error opening file on SD card"));
+		Serial.print(F("[ WARN ] Error opening file on SD card: "));
+		Serial.println(filename);
 		return false;
 	}
 
 	DynamicJsonBuffer jsonBuffer;
-  	JsonObject& root = jsonBuffer.createObject();
-  	root["command"] = "loglist";
+	JsonObject& root = jsonBuffer.createObject();
+	root["command"] = "loglist";
 
-  	JsonArray& data = root.createNestedArray("datetime");
-  	JsonArray& data2 = root.createNestedArray("piccs");
-  	JsonArray& data3 = root.createNestedArray("users");
+	JsonArray& data = root.createNestedArray("time");
+	JsonArray& data2 = root.createNestedArray("uid");
+	JsonArray& data3 = root.createNestedArray("username");
+	JsonArray& data4 = root.createNestedArray("granted");
 
-  	while (dataFile.available()) {
-  		
-  	}
+	while (dataFile.available()) {
+		String databuffer = dataFile.readStringUntil('\n');
+		int seperatorIndex[3];
+		for (int i = 0; i < 3; i++) {
+			if (i == 0) seperatorIndex[i] = databuffer.indexOf(',');
+			else seperatorIndex[i] = databuffer.indexOf(',', seperatorIndex[i-1]+1);
+		}
+		data.add(databuffer.substring(0,seperatorIndex[0]));
+		data2.add(databuffer.substring(seperatorIndex[0]+1,seperatorIndex[1]));
+		data3.add(databuffer.substring(seperatorIndex[1]+1,seperatorIndex[2]));
+		data4.add(databuffer.substring(seperatorIndex[2]+1,seperatorIndex[2]+2));
+	}
 
-  	size_t len = root.measureLength();
-  	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
-  	if (buffer) {
-    	root.printTo((char *)buffer->get(), len + 1);
-    	ws.textAll(buffer);
-    	return true;
-  	}
-  	else return false;
+	size_t len = root.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		root.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+		return true;
+	}
+	else return false;
+}
+
+bool listFiles() {
+	if (!SDAvailable) return false;
+	
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& jsonroot = jsonBuffer.createObject();
+	jsonroot["command"] = "datelist";
+
+	JsonArray& data = jsonroot.createNestedArray("date");
+
+	sd::File root;
+	root = SD.open("Data/");
+	while (true) {
+		sd::File entry = root.openNextFile();
+		if (! entry) {
+			// no more files
+			break;
+		}
+		data.add((String)entry.name());
+		entry.close();
+	}
+
+	size_t len = jsonroot.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		jsonroot.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+		return true;
+	}
+	else return false;
 }
 
 bool readUserLog(String UID) {
@@ -878,19 +957,19 @@ bool readUserLog(String UID) {
 /* ------------------ Misc Functions ------------------- */
 void turnOnLed(int pin) {
 	switch (pin) {
-	    case greedLed:
-	    	digitalWrite(redLed, LOW);
-	    	digitalWrite(blueLed, LOW);
-	      	break;
-	    case redLed:
-		    digitalWrite(redLed, HIGH);
-	    	digitalWrite(blueLed, LOW);
-	      	break;
-	    case blueLed:
-		    digitalWrite(redLed, LOW);
-	    	digitalWrite(blueLed, HIGH);
-	      	break;
-	    default:
-	    	break;
+		case greedLed:
+			digitalWrite(redLed, LOW);
+			digitalWrite(blueLed, LOW);
+			  break;
+		case redLed:
+			digitalWrite(redLed, HIGH);
+			digitalWrite(blueLed, LOW);
+			  break;
+		case blueLed:
+			digitalWrite(redLed, LOW);
+			digitalWrite(blueLed, HIGH);
+			  break;
+		default:
+			break;
 	}
 }
