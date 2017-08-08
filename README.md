@@ -10,8 +10,12 @@ New additions:
 Going to add:
 - [ ] Log entry on SPIFFS system.
 - [ ] Add Open-Close hours in settings menu
+- [ ] Ability to have 2 readers
+- [ ] 2 card entry. When card 1 is scanned. It waits 5 seconds for card 2 to be scanned and opens lock otherwise keep it closed. Also card 2 waits for card 1 etc.
 
 [![Chat at https://gitter.im/esp-rfid/Lobby](https://badges.gitter.im/esp-rfid.svg)](https://gitter.im/esp-rfid/Lobby)
+
+To be able to compile the SD card logging functionality. Unpack the SD.zip and replace the files in your arduino/packages/esp8266/hardware/version/libraries install directory.
 
 # ESP RFID - Access Control with ESP8266, RC522
 Access Control demonstration using a cheap MFRC522 RFID Hardware and Espressif's ESP8266 Microcontroller.

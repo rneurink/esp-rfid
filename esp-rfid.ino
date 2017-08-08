@@ -15,7 +15,7 @@
 #include <ESP8266mDNS.h>		// Zero-config Library (Bonjour, Avahi) http://esp-rfid.local
 #include <DNSServer.h>			// Used for captive portal
 #include <WiFiUdp.h>			// Library for manipulating UDP packets which is used by NTP Client to get Timestamps
-#include <NTPClient.h>		  // To timestamp RFID scans we get Unix Time from NTP Server
+#include <NTPClient.h>			// To timestamp RFID scans we get Unix Time from NTP Server
 #include <SPI.h>				// SPI library to communicate with the peripherals as well as SPIFFS
 #include <MFRC522.h>			// RFID library
 #include <FS.h>					// SPIFFS Library for access to the onboard storage
@@ -25,6 +25,11 @@
 #include <SPIFFSEditor.h>		// This creates a web page on server which can be used to edit text based files.
 #include <TimeLib.h>			// Library for converting epochtime to a date
 #include <SD.h>					// SD card library for storing the log
+#ifdef ESP8266
+extern "C" {
+#include "user_interface.h"		// Used to get Wifi status information
+}
+#endif
 
 /* ------------------ Definitions ---------------------- */
 #define MFRC522_SS 15
@@ -352,7 +357,7 @@ void rfidloop() {
 	String logfile = getDate();
 	logfile.remove(7,1);
 	logfile.remove(4,1);
-	createLog(dataString,logfile);
+	createLogSD(dataString,logfile);
 }
 
 void allowAccess() {
@@ -369,9 +374,9 @@ void denyAccess() {
 }
 
 // Configure RFID Hardware
-void setupRFID(int rfid_ss, int rfid_rst, int rfid_gain) {
+void setupRFID(int rfid_ss, int rfid_gain) {
 	SPI.begin();		   // MFRC522 Hardware uses SPI protocol
-	mfrc522.PCD_Init(rfid_ss, rfid_rst);	// Initialize MFRC522 Hardware
+	mfrc522.PCD_Init(rfid_ss, UINT8_MAX);	// Initialize MFRC522 Hardware
 	// Set RFID Hardware Antenna Gain
 	// This may not work with some boards
 	mfrc522.PCD_SetAntennaGain(rfid_gain);
@@ -522,7 +527,7 @@ bool loadConfiguration() {
 	
 	configFile.close();
 	  
-	setupRFID(MFRC522_SS,UINT8_MAX,rfidgain);
+	setupRFID(MFRC522_SS,rfidgain);
 
 	setupWebserver();
 
@@ -556,6 +561,7 @@ void setupWebserver(){
 
 	//Setting up dns for the captive portal
 	dnsServer.start(53, "*", apIP);
+	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
 
 	// Configure web server
 	// Add Text Editor (http://esp-rfid.local/edit) to Web Server. This feature likely will be dropped on final release.
@@ -730,10 +736,10 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 				}
 			}
 			else if (strcmp(command, "datelist")  == 0) {
-				listFiles();
+				listLogsSD();
 			}
 			else if (strcmp(command, "loglist") ==0) {
-				readLog(root["msg"]);
+				readLogSD(root["msg"]);
 			}
 			else if (strcmp(command, "clearlog") ==0) {
 
@@ -788,17 +794,38 @@ void sendPICClist() {
 void sendStatus() {
 	DynamicJsonBuffer jsonBuffer;
 	JsonObject& root = jsonBuffer.createObject();
+	int mode = WiFi.getMode(); //const char* modes[] = { "NULL", "STA", "AP", "STA+AP" };
+
+	struct ip_info info;
+
+	if (mode == 1) { //Station mode
+		wifi_get_ip_info(STATION_IF, &info);
+		struct station_config conf;
+		wifi_station_get_config(&conf);
+		root["ssid"] = String(reinterpret_cast<char*>(conf.ssid));
+		root["dns"] = printIP(WiFi.dnsIP());
+		root["mac"] = WiFi.macAddress();
+	} else if (mode == 2) { //SoftAP mode
+		wifi_get_ip_info(SOFTAP_IF, &info);
+		struct softap_config conf;
+		wifi_softap_get_config(&conf);
+		root["ssid"] = String(reinterpret_cast<char*>(conf.ssid));
+		root["dns"] = "";
+		root["mac"] = WiFi.softAPmacAddress();
+	}
+	IPAddress ipaddr = IPAddress(info.ip.addr);
+	IPAddress gwaddr = IPAddress(info.gw.addr);
+	IPAddress nmaddr = IPAddress(info.netmask.addr);
+	root["ip"] = printIP(ipaddr);
+	root["gateway"] = printIP(gwaddr);
+	root["netmask"] = printIP(nmaddr);
+
 	root["command"] = "status";
 	root["heap"] = ESP.getFreeHeap();
 	root["chipid"] = String(ESP.getChipId(), HEX);
 	root["cpu"] = ESP.getCpuFreqMHz();
 	root["availsize"] = ESP.getFreeSketchSpace();
-	root["ssid"] = (String)WiFi.SSID();
-	root["ip"] = (String)WiFi.localIP()[0] + "." + (String)WiFi.localIP()[1] + "." + (String)WiFi.localIP()[2] + "." + (String)WiFi.localIP()[3];
-	root["gateway"] = (String)WiFi.gatewayIP()[0] + "." + (String)WiFi.gatewayIP()[1] + "." + (String)WiFi.gatewayIP()[2] + "." + (String)WiFi.gatewayIP()[3];
-	root["netmask"] = (String)WiFi.subnetMask()[0] + "." + (String)WiFi.subnetMask()[1] + "." + (String)WiFi.subnetMask()[2] + "." + (String)WiFi.subnetMask()[3];
-	root["dns"] = (String)WiFi.dnsIP()[0] + "." + (String)WiFi.dnsIP()[1] + "." + (String)WiFi.dnsIP()[2] + "." + (String)WiFi.dnsIP()[3];
-	root["mac"] = getMacAddress();
+	
 	size_t len = root.measureLength();
 	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
 	if (buffer) {
@@ -807,12 +834,8 @@ void sendStatus() {
 	}
 }
 
-String getMacAddress() {
-	uint8_t mac[6];
-	char macStr[18] = { 0 };
-	WiFi.macAddress(mac);
-	sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-	return String(macStr);
+String printIP(IPAddress adress) {
+	return (String)adress[0] + "." + (String)adress[1] + "." + (String)adress[2] + "." + (String)adress[3];
 }
 
 // Send Scanned SSIDs to websocket clients as JSON object
@@ -861,7 +884,7 @@ String getDate() {
 }
 
 /* ------------------ Logging Functions ---------------- */
-bool createLog(String dataString, String filename) {
+bool createLogSD(String dataString, String filename) {
 	if (!SDAvailable) return false;
 	sd::File dataFile = SD.open("Data/" + filename, FILE_WRITE);
 	if (dataFile) {
@@ -876,7 +899,7 @@ bool createLog(String dataString, String filename) {
 	}
 }
 
-bool readLog(String filename) {
+bool readLogSD(String filename) {
 	if (!SDAvailable) return false;
 	sd::File dataFile = SD.open("Data/" + filename);
 	if (!dataFile) {
@@ -917,7 +940,11 @@ bool readLog(String filename) {
 	else return false;
 }
 
-bool listFiles() {
+bool deleteLogSD(String filename) {
+
+}
+
+bool listLogsSD() {
 	if (!SDAvailable) return false;
 	
 	DynamicJsonBuffer jsonBuffer;
@@ -948,9 +975,24 @@ bool listFiles() {
 	else return false;
 }
 
-bool readUserLog(String UID) {
+bool readUserLogSD(String UID) {
 	if (!SDAvailable) return false;
 	return true;
+}
+
+bool createLogSPIFFS(String dataString, String filename) {
+
+}
+
+bool readLogSPIFFS(String filename) {
+
+}
+
+bool deleteLogSPIFFS(String filename) {
+
+}
+
+bool listLogsSPIFFS() {
 
 }
 
