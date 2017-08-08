@@ -5,10 +5,11 @@ New additions:
 - [X] Timed entry.
 - [X] Added captive portal.
 - [X] Added valid untill date. This will give access to the user to a certain date. 
+- [X] Log entry on SD card.
 
 Going to add:
-- [ ] Log entry on SD card.
-- [ ] Give access between specific day's.
+- [ ] Log entry on SPIFFS system.
+- [ ] Add Open-Close hours in settings menu
 
 [![Chat at https://gitter.im/esp-rfid/Lobby](https://badges.gitter.im/esp-rfid.svg)](https://gitter.im/esp-rfid/Lobby)
 

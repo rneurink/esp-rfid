@@ -83,7 +83,7 @@ function listknownLogs(obj) {
 		var cell1 = row.insertCell(0);
 		cell1.innerHTML = obj.time[i];
 		var cell2 = row.insertCell(1);
-		cell2.innerHTML = obj.uid[i];
+		cell2.innerHTML = obj.uid[i].toUpperCase();
 		var cell3 = row.insertCell(2);
 		cell3.innerHTML = obj.username[i];
 		var cell4 = row.insertCell(3);
