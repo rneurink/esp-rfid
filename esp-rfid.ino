@@ -796,6 +796,11 @@ void sendStatus() {
 	JsonObject& root = jsonBuffer.createObject();
 	int mode = WiFi.getMode(); //const char* modes[] = { "NULL", "STA", "AP", "STA+AP" };
 
+	FSInfo fsinfo;
+	if (!SPIFFS.info(fsinfo)) {
+		Serial.print(F("[ WARN ] Error getting info on SPIFFS"));
+	}
+
 	struct ip_info info;
 
 	if (mode == 1) { //Station mode
@@ -810,7 +815,7 @@ void sendStatus() {
 		struct softap_config conf;
 		wifi_softap_get_config(&conf);
 		root["ssid"] = String(reinterpret_cast<char*>(conf.ssid));
-		root["dns"] = "";
+		root["dns"] = printIP(WiFi.softAPIP()); //TODO: Get dns from config or info
 		root["mac"] = WiFi.softAPmacAddress();
 	}
 	IPAddress ipaddr = IPAddress(info.ip.addr);
@@ -825,6 +830,8 @@ void sendStatus() {
 	root["chipid"] = String(ESP.getChipId(), HEX);
 	root["cpu"] = ESP.getCpuFreqMHz();
 	root["availsize"] = ESP.getFreeSketchSpace();
+	root["availspiffs"] = fsinfo.totalBytes - fsinfo.usedBytes;
+	root["spiffssize"] = fsinfo.totalBytes;
 	
 	size_t len = root.measureLength();
 	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.

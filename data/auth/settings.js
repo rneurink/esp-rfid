@@ -188,14 +188,26 @@ function listStats(obj) {
 	document.getElementById("cpu").innerHTML = obj.cpu + " Mhz";
 	document.getElementById("heap").innerHTML = obj.heap + " Bytes";
 	document.getElementById("heap").style.width = (obj.heap * 100) / 81920 + "%";
+	colorStatusbar(document.getElementById("heap"));
 	document.getElementById("flash").innerHTML = obj.availsize + " Bytes";
 	document.getElementById("flash").style.width = (obj.availsize * 100) / 1044464 + "%";
+	colorStatusbar(document.getElementById("flash"));
+	document.getElementById("spiffs").innerHTML = obj.availspiffs + " Bytes";
+	document.getElementById("spiffs").style.width = (obj.availspiffs *100) / obj.spiffssize + "%";
+	colorStatusbar(document.getElementById("spiffs"));
 	document.getElementById("ssidstat").innerHTML = obj.ssid;
 	document.getElementById("ip").innerHTML = obj.ip;
 	document.getElementById("gate").innerHTML = obj.gateway;
 	document.getElementById("mask").innerHTML = obj.netmask;
 	document.getElementById("dns").innerHTML = obj.dns;
 	document.getElementById("mac").innerHTML = obj.mac;
+}
+
+function colorStatusbar(ref) {
+	var percentage = ref.style.width.slice(0,-1);
+	if (percentage > 50) ref.className = "progress-bar progress-bar-success";
+	else if (percentage > 25) ref.className = "progress-bar progress-bar-warning";
+	else ref.class="progress-bar progress-bar-danger";
 }
 
 function clearLog() {
