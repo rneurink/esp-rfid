@@ -54,6 +54,16 @@
 						<h6 class="text-muted">Select your desired strength of the RFID antenna and the activation time of the relay.</h6>
 						<br>
 						<div class="row form-group">
+							<label class="col-xs-3">Create log</label>
+							<span class="col-xs-9">
+								<select class="form-control input-sm" style="max-width:185px" id="logging">
+									<option selected="selected" value="0">Disabled</option>
+									<option value="1">On SD card</option>
+									<option value="2">On Local storage</option>
+								</select>
+							</span>
+						</div>
+						<div class="row form-group">
 							<label class="col-xs-3">Antenna Gain</label>
 							<span class="col-xs-9">
 								<select class="form-control input-sm" style="max-width:185px" id="gain">

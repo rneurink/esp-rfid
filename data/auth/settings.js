@@ -3,6 +3,7 @@ var websock;
 function listCONF(obj) {
 	document.getElementById("adminpass").value = obj.auth_pass;
 	document.getElementById("hstname").value = obj.wifi_hostname;
+	document.getElementById("logging").value = obj.create_log;
 	document.getElementById("gain").value = obj.rfid_gain;
 	document.getElementById("delay").value = obj.relay_time;
 	document.getElementById("apssid").value = obj.ap_ssid;
@@ -61,6 +62,7 @@ function saveConf() {
 	datatosend.command = "configfile";
 	datatosend.auth_pass = adminpass;
 	datatosend.wifi_hostname = document.getElementById("hstname").value;
+	datatosend.create_log = document.getElementById("logging").value;
 	datatosend.rfid_gain = document.getElementById("gain").value;
 	datatosend.relay_time = document.getElementById("delay").value;
 	datatosend.ap_ssid = document.getElementById("apssid").value;

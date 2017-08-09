@@ -75,6 +75,7 @@ bool denyAcc = false;
 bool activateRelay = false;
 unsigned long previousMillis = 0;
 int activateTime;
+int loggingOption = 0;
 
 String dateTimeStamp;
 
@@ -210,7 +211,7 @@ void rfidloop() {
 	filename += uid;
 
 	fs::File f = SPIFFS.open(filename, "r");
-	// Check if we could find it above function returns true if the file is exist
+	// Check if we could find it above function returns true if the file is exists
 	if (f) {
 		isKnown = 1; // we found it and label it as known
 		// Now we need to read contents of the file to parse JSON object contains Username and Access Status
@@ -353,11 +354,14 @@ void rfidloop() {
 		}
 	}
 	// So far got we got UID of Scanned RFID Tag, checked it if it's on the database and access status, informed Administrator Portal
-	String dataString = timeClient.getFormattedTime() + "," + uid + "," + logUsername + "," + gaveAccess;
-	String logfile = getDate();
-	logfile.remove(7,1);
-	logfile.remove(4,1);
-	createLogSD(dataString,logfile);
+	if (loggingOption != 0) {
+		String dataString = timeClient.getFormattedTime() + "," + uid + "," + logUsername + "," + gaveAccess;
+		String logfile = getDate();
+		logfile.remove(7,1);
+		logfile.remove(4,1);
+		if (loggingOption == 1) createLogSD(dataString,logfile);
+		else if (loggingOption == 2) createLogSPIFFS(dataString, logfile);
+	}
 }
 
 void allowAccess() {
@@ -522,6 +526,7 @@ bool loadConfiguration() {
 	int wifimode = json["wifimode"];
 
 	//Hardware variables
+	loggingOption = json["create_log"];
 	int rfidgain = json["rfid_gain"];
 	activateTime = json["relay_time"];
 	
@@ -736,13 +741,16 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 				}
 			}
 			else if (strcmp(command, "datelist")  == 0) {
-				listLogsSD();
+				if (loggingOption == 1) listLogsSD();
+				else if (loggingOption == 2) listLogsSPIFFS();
 			}
 			else if (strcmp(command, "loglist") ==0) {
-				readLogSD(root["msg"]);
+				if (loggingOption == 1) readLogSD(root["msg"]);
+				else if (loggingOption == 2) readLogSPIFFS(root["msg"]);
 			}
 			else if (strcmp(command, "clearlog") ==0) {
-
+				if (loggingOption == 1) deleteLogSD(root["msg"]);
+				else if (loggingOption == 2) deleteLogSPIFFS(root["msg"]);
 			}
 		}   
 	}
@@ -893,14 +901,15 @@ String getDate() {
 /* ------------------ Logging Functions ---------------- */
 bool createLogSD(String dataString, String filename) {
 	if (!SDAvailable) return false;
-	sd::File dataFile = SD.open("Data/" + filename, FILE_WRITE);
-	if (dataFile) {
-		dataFile.println(dataString);
-		dataFile.close();
+	if (!SD.exists("Data/")) SD.mkdir("Data/");
+	sd::File f = SD.open("Data/" + filename, FILE_WRITE);
+	if (f) {
+		f.println(dataString);
+		f.close();
 		return true;
 	}
 	else {
-		Serial.print(F("[ WARN ] Error opening file on SD card: "));
+		Serial.print(F("[ WARN ] Error writing to file on SD card: "));
 		Serial.println(filename);
 		return false;
 	}
@@ -908,9 +917,9 @@ bool createLogSD(String dataString, String filename) {
 
 bool readLogSD(String filename) {
 	if (!SDAvailable) return false;
-	sd::File dataFile = SD.open("Data/" + filename);
-	if (!dataFile) {
-		Serial.print(F("[ WARN ] Error opening file on SD card: "));
+	sd::File f = SD.open("Data/" + filename);
+	if (!f) {
+		Serial.print(F("[ WARN ] Error reading file on SD card: "));
 		Serial.println(filename);
 		return false;
 	}
@@ -924,8 +933,8 @@ bool readLogSD(String filename) {
 	JsonArray& data3 = root.createNestedArray("username");
 	JsonArray& data4 = root.createNestedArray("granted");
 
-	while (dataFile.available()) {
-		String databuffer = dataFile.readStringUntil('\n');
+	while (f.available()) {
+		String databuffer = f.readStringUntil('\n');
 		int seperatorIndex[3];
 		for (int i = 0; i < 3; i++) {
 			if (i == 0) seperatorIndex[i] = databuffer.indexOf(',');
@@ -948,7 +957,14 @@ bool readLogSD(String filename) {
 }
 
 bool deleteLogSD(String filename) {
-
+	if (!SDAvailable) return false;
+	if (!SD.exists("Data/" + filename)) return true;
+	if (SD.remove("Data/" + filename)) return true;
+	else {
+		Serial.print(F("[ WARN ] Error removing file from SD card: "));
+		Serial.println(filename);
+		return false;
+	}
 }
 
 bool listLogsSD() {
@@ -988,19 +1004,92 @@ bool readUserLogSD(String UID) {
 }
 
 bool createLogSPIFFS(String dataString, String filename) {
-
+	fs::File f;
+	if (SPIFFS.exists("Data/" + filename)) f = SPIFFS.open("Data/" + filename, "r+");
+	else f = SPIFFS.open("Data/" + filename,"w+");
+	if (f) {
+		f.seek(0,SeekEnd);
+		f.println(dataString);
+		f.close();
+		return true;
+	}
+	else {
+		Serial.print(F("[ WARN ] Error writing to file on SPIFFS: "));
+		Serial.println(filename);
+		return false;
+	}
 }
 
 bool readLogSPIFFS(String filename) {
+	fs::File f = SPIFFS.open("Data/" + filename, "r");
+	if (!f) {
+		Serial.print(F("[ WARN ] Error reading file on SPIFFS: "));
+		Serial.println(filename);
+		return false;
+	}
 
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	root["command"] = "loglist";
+
+	JsonArray& data = root.createNestedArray("time");
+	JsonArray& data2 = root.createNestedArray("uid");
+	JsonArray& data3 = root.createNestedArray("username");
+	JsonArray& data4 = root.createNestedArray("granted");
+
+	while (f.available()) {
+		String databuffer = f.readStringUntil('\n');
+		int seperatorIndex[3];
+		for (int i = 0; i < 3; i++) {
+			if (i == 0) seperatorIndex[i] = databuffer.indexOf(',');
+			else seperatorIndex[i] = databuffer.indexOf(',', seperatorIndex[i-1]+1);
+		}
+		data.add(databuffer.substring(0,seperatorIndex[0]));
+		data2.add(databuffer.substring(seperatorIndex[0]+1,seperatorIndex[1]));
+		data3.add(databuffer.substring(seperatorIndex[1]+1,seperatorIndex[2]));
+		data4.add(databuffer.substring(seperatorIndex[2]+1,seperatorIndex[2]+2));
+	}
+
+	size_t len = root.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		root.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+		return true;
+	}
+	else return false;
 }
 
 bool deleteLogSPIFFS(String filename) {
-
+	if (!SPIFFS.exists("Data/" + filename)) return true;
+	if (SPIFFS.remove("Data/" + filename)) return true;
+	else {
+		Serial.print(F("[ WARN ] Error removing file from SPIFFS: "));
+		Serial.println(filename);
+		return false;
+	}
 }
 
 bool listLogsSPIFFS() {
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& jsonroot = jsonBuffer.createObject();
+	jsonroot["command"] = "datelist";
 
+	JsonArray& data = jsonroot.createNestedArray("date");
+
+	Dir dir = SPIFFS.openDir("Data/");
+	while (dir.next()) {
+		data.add((String)dir.fileName().substring(5));
+	}
+
+	size_t len = jsonroot.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		jsonroot.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+		return true;
+	}
+	else return false;
 }
 
 /* ------------------ Misc Functions ------------------- */
