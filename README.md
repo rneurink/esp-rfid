@@ -6,9 +6,9 @@ New additions:
 - [X] Added captive portal.
 - [X] Added valid untill date. This will give access to the user to a certain date. 
 - [X] Log entry on SD card.
+- [X] Log entry on SPIFFS system.
 
 Going to add:
-- [ ] Log entry on SPIFFS system.
 - [ ] Add Open-Close hours in settings menu
 - [ ] Ability to have 2 readers
 - [ ] 2 card entry. When card 1 is scanned. It waits 5 seconds for card 2 to be scanned and opens lock otherwise keep it closed. Also card 2 waits for card 1 etc.

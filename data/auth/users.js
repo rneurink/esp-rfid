@@ -60,7 +60,7 @@ function listSCAN(obj) {
 	document.getElementById("uidinp").value = uidUP;
 	document.getElementById("typeinp").value = obj.type;
 	document.getElementById("username").value = obj.user;
-	document.getElementById("access").value = obj.access;
+	document.getElementById("access").value = obj.acctype;
 	document.getElementById("validdate").value = obj.validDate;
 	var ref = document.getElementById("buttonnormal");
 	var ref2 = document.getElementById("rembuttonnormal");
@@ -114,7 +114,7 @@ function update(e) {
 	datatosend.command = "userfile";
 	datatosend.uid = document.getElementById("uidinp").value.toLowerCase();
 	datatosend.user = document.getElementById("username").value;
-	datatosend.haveAcc = document.getElementById("access").value;
+	datatosend.accType = document.getElementById("access").value;
 	datatosend.timedAcc = getTimeString();
 	if (!checkDateFormat) return;
 	datatosend.validDate = document.getElementById("validdate").value;
@@ -181,7 +181,7 @@ function listknownPICC(obj) {
 		var cell2 = row.insertCell(1);
 		cell2.innerHTML = obj.users[i];
 		var cell3 = row.insertCell(2);
-		switch(obj.access[i]){
+		switch(obj.accType[i]){
 			case 0:
 				cell3.innerHTML = "No access";
 				break;
@@ -198,11 +198,11 @@ function listknownPICC(obj) {
 		var cell5 = row.insertCell(4);
 		cell5.innerHTML = obj.validDate[i];
 		cell5.style.display = "none";
-		if (obj.access[i] == 1) {
+		if (obj.accType[i] == 1) {
 			row.className = "success";
-		} else if (obj.access[i] == 0) {
+		} else if (obj.accType[i] == 0) {
 			row.className = "warning";
-		} else if (obj.access[i] == 2) {
+		} else if (obj.accType[i] == 2) {
 			row.className = "info";
 		}
 	}

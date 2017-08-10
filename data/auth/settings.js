@@ -1,22 +1,68 @@
 var websock;
+var utcSeconds;
 
 function listCONF(obj) {
 	document.getElementById("adminpass").value = obj.auth_pass;
 	document.getElementById("hstname").value = obj.wifi_hostname;
+	document.getElementById("sdss").value = obj.sd_ss;
 	document.getElementById("logging").value = obj.create_log;
+	document.getElementById("rfidss").value = obj.rfid_ss;
 	document.getElementById("gain").value = obj.rfid_gain;
+	document.getElementById("gpiorly").value = obj.relay_gpio;
+	document.getElementById("typerly").value = obj.relay_type;
 	document.getElementById("delay").value = obj.relay_time;
 	document.getElementById("apssid").value = obj.ap_ssid;
 	document.getElementById("appass").value = obj.ap_pass;
 	document.getElementById("stassid").value = obj.sta_ssid;
 	document.getElementById("stapass").value = obj.sta_pass;
+	document.getElementById("ntpserver").value = obj.ntpserver;
+	document.getElementById("intervals").value = obj.ntpinterval;
+	document.getElementById("DropDownTimezone").value = obj.timezone;
 	if (obj.wifimode === "1") {
 		document.getElementById("wifimodeap").checked = true;
+	}
+	else {
+		document.getElementById("wifibssid").value = obj.sta_bssid;
+		document.getElementById("hideBSSID").style.display = "block";
 	}
 	var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj, null, 2));
 	var dlAnchorElem = document.getElementById("downloadSet");
 	dlAnchorElem.setAttribute("href", dataStr);
 	dlAnchorElem.setAttribute("download", "esp-rfid-settings.json");
+}
+
+function browserTime() {
+	var today = new Date();
+	document.getElementById("rtc").innerHTML = today;
+}
+
+function deviceTime() {
+	var t = new Date(0); // The 0 there is the key, which sets the date to the epoch
+	t.setUTCSeconds(utcSeconds);
+	var d = t.toUTCString();
+	document.getElementById("utc").innerHTML = d;
+	utcSeconds = utcSeconds + 1;
+}
+
+var t = setInterval(browserTime, 1000);
+var tt = setInterval(deviceTime, 1000);
+
+function syncBrowserTime() {
+	var d = new Date();
+	var timestamp = Math.floor((d.getTime() / 1000) + ((d.getTimezoneOffset() * 60) * -1));
+	var datatosend = {};
+	datatosend.command = "settime";
+	datatosend.epoch = timestamp;
+	websock.send(JSON.stringify(datatosend));
+	location.reload();
+}
+
+function handleAP() {
+	document.getElementById("hideBSSID").style.display = "none";
+}
+
+function handleSTA() {
+	document.getElementById("hideBSSID").style.display = "block";
 }
 
 function listSSID(obj) {
@@ -25,9 +71,15 @@ function listSSID(obj) {
 		var opt = document.createElement("option");
 		opt.value = obj.ssid[i];
 		opt.innerHTML = obj.ssid[i];
+		opt.bssidvalue = obj.bssid[i];
 		select.appendChild(opt);
 	}
 	document.getElementById("scanb").innerHTML = "Re-Scan";
+}
+
+function listBSSID(obj) {
+	var select = document.getElementById("ssid");
+	document.getElementById("wifibssid").value = select.options[select.selectedIndex].bssidvalue;
 }
 
 function scanWifi() {
@@ -54,22 +106,33 @@ function saveConf() {
 	} else {
 		ssid = document.getElementById("stassid").value;
 	}
-	var wifimode = "0";
-	if (document.getElementById("wifimodeap").checked) {
-		wifimode = "1";
-	}
 	var datatosend = {};
+	var wifimode = "0";
 	datatosend.command = "configfile";
 	datatosend.auth_pass = adminpass;
 	datatosend.wifi_hostname = document.getElementById("hstname").value;
+	datatosend.sd_ss = document.getElementById("sdss").value;
 	datatosend.create_log = document.getElementById("logging").value;
+	datatosend.rfid_ss = document.getElementById("rfidss").value;
 	datatosend.rfid_gain = document.getElementById("gain").value;
+	datatosend.relay_gpio = document.getElementById("gpiorly").value; 
+	datatosend.relay_type = document.getElementById("typerly").value;
 	datatosend.relay_time = document.getElementById("delay").value;
 	datatosend.ap_ssid = document.getElementById("apssid").value;
 	datatosend.ap_pass = document.getElementById("appass").value;
 	datatosend.sta_ssid = ssid;
 	datatosend.sta_pass = document.getElementById("stapass").value;
+	if (document.getElementById("wifimodeap").checked) {
+		wifimode = "1";
+		datatosend.sta_bssid = document.getElementById("wifibssid").value = 0;
+	}
+	else {
+		datatosend.sta_bssid= document.getElementById("wifibssid").value;
+	}
 	datatosend.wifimode = wifimode;
+	datatosend.ntpserver =document.getElementById("ntpserver").value;
+	datatosend.ntpinterval = document.getElementById("intervals").value;
+	datatosend.timezone = document.getElementById("DropDownTimezone").value;
 	websock.send(JSON.stringify(datatosend));
 	location.reload();
 }
@@ -147,7 +210,7 @@ function restoreUser() {
 					for (var i = 1; i <= len; i++) {
 						var uid = json.piccs[i - 1].slice(3);
 						var user = json.users[i - 1];
-						var acc = json.access[i - 1];
+						var acc = json.accType[i - 1];
 						var timed = json.timedAcc[i - 1];
 						var validdate = json.validDate[i - 1];
 						restore1by1(i, uid, user, acc, timed, validdate, len);
@@ -166,7 +229,7 @@ function restore1by1(n, uid, user, acc, timed, validdate, len) {
 		datatosend.command = "userfile";
 		datatosend.uid = uid;
 		datatosend.user = user;
-		datatosend.haveAcc = acc;
+		datatosend.accType = acc;
 		datatosend.timedAcc = timed;
 		datatosend.validDate = validdate;
 		websock.send(JSON.stringify(datatosend));
@@ -181,8 +244,6 @@ function restore1by1(n, uid, user, acc, timed, validdate, len) {
 
 function refreshStats() {
 	websock.send("{\"command\":\"status\"}");
-	document.getElementById("status").style.display = "block";
-	document.getElementById("refstat").innerHTML = "Refresh Statics";
 }
   
 function listStats(obj) {
@@ -225,6 +286,8 @@ function start() {
 	websock = new WebSocket("ws://" + window.location.hostname + "/ws");
 	websock.onopen = function(evt) {
 		websock.send("{\"command\":\"getconf\"}");
+		websock.send("{\"command\":\"gettime\"}");
+		websock.send("{\"command\":\"status\"}");
 		document.getElementById("loading-img").style.display = "none";
 	};
 	websock.onclose = function(evt) {};
@@ -237,6 +300,8 @@ function start() {
 			listSSID(obj);
 		} else if (obj.command === "configfile") {
 			listCONF(obj);
+		} else if (obj.command === "gettime") {
+			utcSeconds = obj.epoch;
 		} else if (obj.command === "picclist") {
 			piccBackup(obj);
 		} else if (obj.command === "status") {

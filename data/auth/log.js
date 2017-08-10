@@ -53,6 +53,9 @@ function addRowHandlers() {
 function listdates(obj) {
 	var ref = document.getElementById("datelist");
 	var i;
+	for (i = ref.options.length - 1; i >= 0; i--) {
+		ref.remove(i);
+	}
 	for (i = 0; i < obj.date.length; i++) {
 		var formatteddate = obj.date[i].substr(0,4) + "-" + obj.date[i].substr(4,2) + "-" + obj.date[i].substr(6,2);
 		var ref2 = document.createElement("option");
@@ -69,6 +72,18 @@ function getlog() {
 	datatosend.command = "loglist";
 	datatosend.msg = document.getElementById("datelist").value;
 	websock.send(JSON.stringify(datatosend));
+}
+
+function removeLog() {
+	var ref = document.getElementById("datelist");
+	var x = confirm("This will remove all log entries from: " + ref.innerHTML + ". Are you sure?");
+	if (x) {
+		var datatosend = {};
+		datatosend.command = "remlog";
+		datatosend.msg = ref.value;
+		websock.send(JSON.stringify(datatosend));
+		location.reload();
+	}
 }
 
 function listknownLogs(obj) {

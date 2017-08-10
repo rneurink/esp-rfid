@@ -15,7 +15,7 @@
 #include <ESP8266mDNS.h>		// Zero-config Library (Bonjour, Avahi) http://esp-rfid.local
 #include <DNSServer.h>			// Used for captive portal
 #include <WiFiUdp.h>			// Library for manipulating UDP packets which is used by NTP Client to get Timestamps
-#include <NTPClient.h>			// To timestamp RFID scans we get Unix Time from NTP Server
+#include <NtpClientLib.h>		// To timestamp RFID scans we get Unix Time from NTP Server
 #include <SPI.h>				// SPI library to communicate with the peripherals as well as SPIFFS
 #include <MFRC522.h>			// RFID library
 #include <FS.h>					// SPIFFS Library for access to the onboard storage
@@ -32,10 +32,7 @@ extern "C" {
 #endif
 
 /* ------------------ Definitions ---------------------- */
-#define MFRC522_SS 15
-#define SD_SS 2
-#define relayPin 5
-#define greedLed 5
+#define greenLed 5
 #define redLed 4
 #define blueLed 0
 
@@ -52,9 +49,6 @@ DNSServer dnsServer;
 // Create UDP instance for NTP Client
 WiFiUDP ntpUDP;
 
-// Create NTP Client instance
-NTPClient timeClient(ntpUDP);
-
 /* ------------------ Variables ------------------------ */
 String admin_pass;
 const char *auth_pass;
@@ -67,17 +61,12 @@ String filename = "/P/";
 //flag to use from web update to reboot the ESP
 bool shouldReboot = false;
 
-int timeZone = 2; //UTC +2 is my timeZone. Adjust to your timezone
-
 bool inAPMode = false;
 bool SDAvailable = false;
 bool denyAcc = false;
 bool activateRelay = false;
 unsigned long previousMillis = 0;
-int activateTime;
-int loggingOption = 0;
-
-String dateTimeStamp;
+int activateTime, timeZone, loggingOption = 0, relayPin, relayType;
 
 extern "C" uint32_t _SPIFFS_start;
 extern "C" uint32_t _SPIFFS_end;
@@ -91,46 +80,14 @@ void setup() {
 	// Start SPIFFS filesystem
 	SPIFFS.begin();
 
+	if (loadConfiguration()) Serial.println(F("[ INFO ] Loaded configuration"));
+	else { Serial.println(F("[ WARN ] Failed to load configuration")); return;}
+
 	pinMode(relayPin, OUTPUT);
 	pinMode(redLed, OUTPUT);
 	pinMode(blueLed, OUTPUT);
-	digitalWrite(relayPin, LOW);
-
-	if (loadConfiguration()) Serial.println(F("[ INFO ] Loaded configuration"));
-	else Serial.println(F("[ WARN ] Failed to load configuration"));
-
-	// Start NTP Client
-	timeClient.setTimeOffset(timeZone * 3600); //Timezone offset
-	if (WiFi.status() == WL_CONNECTED)
-		timeClient.begin();
-
-	if (!SD.begin(SD_SS,SPI_QUARTER_SPEED)) {
-		SDAvailable = false;
-		Serial.println(F("[ INFO ] SD Card failed to connect or not present"));
-	}
-	else {
-		SDAvailable = true;
-		Serial.println(F("[ INFO ] SD Card initialized"));
-	}
-
-	if (SDAvailable) {
-		Serial.print(F("[ INFO ] SD Card type: "));
-		switch (SD.type()) {
-			case SD_CARD_TYPE_SD1:
-				Serial.println("SD1");
-				break;
-			case SD_CARD_TYPE_SD2:
-				Serial.println("SD2");
-				break;
-			case SD_CARD_TYPE_SDHC:
-				Serial.println("SDHC");
-				break;
-			default:
-				Serial.println("Unknown");
-		  }
-		Serial.print(F("[ INFO ] SD Card Fat Type: FAT"));
-		Serial.println(SD.fatType());
-	}
+	if (relayType == 1) digitalWrite(relayPin, LOW);
+	else digitalWrite(relayPin, HIGH);
 
 	turnOnLed(blueLed);
 }
@@ -144,17 +101,13 @@ void loop() {
 		ESP.restart();
 	}
 
-	dnsServer.processNextRequest();
-
-	if (WiFi.status() == WL_CONNECTED) {
-		// Get Time from NTP Server
-		timeClient.update();
-	}
+	if (inAPMode) dnsServer.processNextRequest();
 
 	unsigned long currentMillis = millis();
 	if (currentMillis - previousMillis >= activateTime && activateRelay) {
 		activateRelay = false;
-		digitalWrite(relayPin, LOW);
+		if (relayType == 1) digitalWrite(relayPin, LOW);
+		else digitalWrite(relayPin, HIGH);
 		turnOnLed(blueLed);
 	}
 	if (currentMillis - previousMillis >= activateTime && denyAcc) {
@@ -162,8 +115,9 @@ void loop() {
 		turnOnLed(blueLed);
 	}
 	if (activateRelay) {
-		turnOnLed(greedLed);
-		digitalWrite(relayPin, HIGH);
+		turnOnLed(greenLed);
+		if (relayType == 1) digitalWrite(relayPin, HIGH);
+		else digitalWrite(relayPin, LOW);
 	}
 
 	// Another loop for RFID Events, since we are using polling method instead of Interrupt we need to check RFID hardware for events
@@ -201,7 +155,7 @@ void rfidloop() {
 	// We are going to use filesystem to store known UIDs.
 	int isKnown = 0;  // First assume we don't know until we got a match
 	// If we know the PICC we need to know if its User have an Access
-	int haveAcc = 0;  // First assume User do not have access
+	int accType = 0;  // First assume User do not have access
 	String timedAccess = "";
 	//Log functionality
 	bool gaveAccess = false;
@@ -229,7 +183,7 @@ void rfidloop() {
 			// Get username Access Status
 			String username = json["user"];
 			logUsername = username;
-			haveAcc = json["haveAcc"];
+			accType = json["accType"];
 			String validdate = json["validDate"];
 			bool isValid = false;
 			Serial.println(" = known PICC");
@@ -249,15 +203,15 @@ void rfidloop() {
 			}
 			else isValid = true;
 			if (isValid) {
-				if (haveAcc == 1) {
+				if (accType == 1) {
 					gaveAccess = true;
 					allowAccess();
 				}
-				else if (haveAcc == 0) {
+				else if (accType == 0) {
 					gaveAccess = false;
 					denyAccess();
 				}
-				else if (haveAcc == 2) {
+				else if (accType == 2) {
 					//Check timed access
 					// 0:sunday, 1:monday etc
 					//Format: (0_12:00-24:00 1_08:00-16:00)
@@ -268,7 +222,8 @@ void rfidloop() {
 					for (int i = 0; i < dayCount; i++) {
 						allowedDays[i] = String(timedAccess.charAt(i*14)).toInt();
 					}
-					int currentDay = timeClient.getDay();
+					unsigned long epochTime = now();
+					int currentDay = ((epochTime / 86400L) + 4 ) % 7;
 					bool checkTime = false;
 					int checkTimeOnPos = 0;
 					//Check if current day is one of the allowed days
@@ -283,7 +238,8 @@ void rfidloop() {
 					if (checkTime) {
 						String fromTime = timedAccess.substring((checkTimeOnPos*14) + 2,(checkTimeOnPos*14) + 7);
 						String untillTime = timedAccess.substring((checkTimeOnPos*14) + 8,(checkTimeOnPos*14) + 13);
-						int currentHour = timeClient.getHours(), currentMinute = timeClient.getMinutes();
+						unsigned long epochTime = now();
+						int currentHour = (epochTime % 86400L) / 3600, currentMinute = (epochTime % 3600) / 60;
 						if ((fromTime.substring(0,2).toInt()) < currentHour && (untillTime.substring(0,2).toInt()) > currentHour) { allowAccess(); gaveAccess = true; }//Within the hours
 						else if ((fromTime.substring(0,2).toInt()) == currentHour && (fromTime.substring(3).toInt()) < currentMinute) { allowAccess(); gaveAccess = true; }//Same hour as from time check the minutes
 						else if ((untillTime.substring(0,2).toInt()) == currentHour && (untillTime.substring(3).toInt()) > currentMinute) { allowAccess(); gaveAccess = true; }//Same hour as untill time check the minutes
@@ -311,11 +267,11 @@ void rfidloop() {
 			// A boolean 1 for known tags 0 for unknown
 			root["known"] = isKnown;
 			// An int 1 for granted 0 for denied access, 2 for timed
-			root["access"] = haveAcc;
+			root["accType"] = accType;
 			// Username
 			root["user"] = username;
 			// Timed access
-			if (haveAcc == 2) root["timedAcc"] = timedAccess;
+			if (accType == 2) root["timedAcc"] = timedAccess;
 			else root["timedAcc"] = "";
 			root["validDate"] = validdate;
 			size_t len = root.measureLength();
@@ -355,7 +311,7 @@ void rfidloop() {
 	}
 	// So far got we got UID of Scanned RFID Tag, checked it if it's on the database and access status, informed Administrator Portal
 	if (loggingOption != 0) {
-		String dataString = timeClient.getFormattedTime() + "," + uid + "," + logUsername + "," + gaveAccess;
+		String dataString = getTime() + "," + uid + "," + logUsername + "," + gaveAccess;
 		String logfile = getDate();
 		logfile.remove(7,1);
 		logfile.remove(4,1);
@@ -411,10 +367,10 @@ void ShowReaderDetails() {
 
 /* ------------------ WiFi Functions ------------------- */
 // Try to connect Wi-Fi
-bool connectSTA(const char* sta_ssid, const char* sta_pass) {
+bool connectSTA(const char* sta_ssid, const char* sta_pass, byte bssid[6]) {
 	WiFi.mode(WIFI_STA);
 	// First connect to a wi-fi network
-	WiFi.begin(sta_ssid, sta_pass);
+	WiFi.begin(sta_ssid, sta_pass, 0, bssid);
 	// Inform user we are trying to connect
 	Serial.print(F("[ INFO ] Trying to connect WiFi: "));
 	Serial.print(sta_ssid);
@@ -448,6 +404,8 @@ bool connectSTA(const char* sta_ssid, const char* sta_pass) {
 bool setupAP(const char* ap_ssid, const char* ap_pass) {
 	WiFi.mode(WIFI_AP);
 	Serial.println(F("[ INFO ] Configuring access point... "));
+	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+	dnsServer.start(53, "*", apIP);
 	bool result = WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 	Serial.print(F("[ INFO ] Captive portal setup: "));
 	Serial.println(result ? "Ready" : "Failed!");
@@ -459,6 +417,10 @@ bool setupAP(const char* ap_ssid, const char* ap_pass) {
 	inAPMode = true;
 	Serial.print(F("[ INFO ] AP IP address: "));
 	Serial.println(myIP);
+	Serial.print(F("[ INFO ] AP SSID: "));
+	Serial.println(ap_ssid);
+	Serial.print(F("[ INFO ] AP PASS: "));
+	Serial.println(ap_pass);
 	return result;
 }
 
@@ -524,17 +486,25 @@ bool loadConfiguration() {
 	const char *sta_ssid = json["sta_ssid"];
 	const char *sta_pass = json["sta_pass"];
 	int wifimode = json["wifimode"];
+	const char * bssidmac = json["sta_bssid"];
+	byte bssid[6];
+	parseBytes(bssidmac, ':', bssid, 6, 16);
+
+	//Time variables
+	const char * ntpserver = json["ntpserver"];
+	int ntpinter = json["ntpinterval"];
+	int timeZone = json["timezone"];
 
 	//Hardware variables
+	int SD_SS = json["sd_ss"];
 	loggingOption = json["create_log"];
+	int MFRC522_SS = json["rfid_ss"];
 	int rfidgain = json["rfid_gain"];
+	relayPin = json["relay_gpio"];
+	relayType = json["relay_type"];
 	activateTime = json["relay_time"];
 	
 	configFile.close();
-	  
-	setupRFID(MFRC522_SS,rfidgain);
-
-	setupWebserver();
 
 	WiFi.hostname(wifi_hostname);
 	  
@@ -543,17 +513,51 @@ bool loadConfiguration() {
 		if (!setupAP(ap_ssid, ap_pass)) return false;
 	}
 	else {
-		if (!connectSTA(sta_ssid, sta_pass)){ // If unable to connect to WiFi setup Access point
+		if (!connectSTA(sta_ssid, sta_pass, bssid)){ // If unable to connect to WiFi setup Access point
 			if (!setupAP(ap_ssid, ap_pass)) return false;
 		  }
 	}
 
-	  // Start mDNS service so we can connect to http://esp-rfid.local (if Bonjour installed on Windows or Avahi on Linux)
+	setupRFID(MFRC522_SS,rfidgain);
+	setupWebserver();
+
+	// Start mDNS service so we can connect to http://esp-rfid.local (if Bonjour installed on Windows or Avahi on Linux)
 	if (!MDNS.begin(wifi_hostname)) {
 		Serial.println(F("Error setting up MDNS responder!"));
 	}
 	// Add Web Server service to mDNS
 	MDNS.addService("http", "tcp", 80);
+
+	NTP.begin(ntpserver, timeZone);
+	NTP.setInterval(ntpinter * 60); // Poll every x minutes
+
+	if (!SD.begin(SD_SS,SPI_QUARTER_SPEED)) {
+		SDAvailable = false;
+		Serial.println(F("[ INFO ] SD Card failed to connect or not present"));
+	}
+	else {
+		SDAvailable = true;
+		Serial.println(F("[ INFO ] SD Card initialized"));
+	}
+
+	if (SDAvailable) {
+		Serial.print(F("[ INFO ] SD Card type: "));
+		switch (SD.type()) {
+			case SD_CARD_TYPE_SD1:
+				Serial.println("SD1");
+				break;
+			case SD_CARD_TYPE_SD2:
+				Serial.println("SD2");
+				break;
+			case SD_CARD_TYPE_SDHC:
+				Serial.println("SDHC");
+				break;
+			default:
+				Serial.println("Unknown");
+		  }
+		Serial.print(F("[ INFO ] SD Card Fat Type: FAT"));
+		Serial.println(SD.fatType());
+	}
 
 	return true;
 }
@@ -563,10 +567,6 @@ void setupWebserver(){
 	// Start WebSocket Plug-in and handle incoming message on "onWsEvent" function
 	server.addHandler(&ws);
 	ws.onEvent(onWsEvent);
-
-	//Setting up dns for the captive portal
-	dnsServer.start(53, "*", apIP);
-	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
 
 	// Configure web server
 	// Add Text Editor (http://esp-rfid.local/edit) to Web Server. This feature likely will be dropped on final release.
@@ -728,6 +728,14 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 			else if (strcmp(command, "scan")  == 0) {
 				WiFi.scanNetworksAsync(printScanResult);
 			}
+			else if (strcmp(command, "gettime")  == 0) {
+				sendTime();
+			}
+			else if (strcmp(command, "settime")  == 0) {
+				unsigned long t = root["epoch"];
+				setTime(t);
+				sendTime();
+			}
 			else if (strcmp(command, "getconf")  == 0) {
 				fs::File configFile = SPIFFS.open("/auth/config.json", "r");
 				if (configFile) {
@@ -748,7 +756,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 				if (loggingOption == 1) readLogSD(root["msg"]);
 				else if (loggingOption == 2) readLogSPIFFS(root["msg"]);
 			}
-			else if (strcmp(command, "clearlog") ==0) {
+			else if (strcmp(command, "remlog") ==0) {
 				if (loggingOption == 1) deleteLogSD(root["msg"]);
 				else if (loggingOption == 2) deleteLogSPIFFS(root["msg"]);
 			}
@@ -764,7 +772,7 @@ void sendPICClist() {
 
 	JsonArray& data = root.createNestedArray("piccs");
 	JsonArray& data2 = root.createNestedArray("users");
-	JsonArray& data3 = root.createNestedArray("access");
+	JsonArray& data3 = root.createNestedArray("accType");
 	JsonArray& data4 = root.createNestedArray("timedAcc");
 	JsonArray& data5 = root.createNestedArray("validDate");
 	while (dir.next()) {
@@ -780,17 +788,30 @@ void sendPICClist() {
 		JsonObject& json = jsonBuffer2.parseObject(buf.get());
 		if (json.success()) {
 			String username = json["user"];
-			int haveAcc = json["haveAcc"];
+			int accType = json["accType"];
 			String timedAccess = json["timedAcc"];
 			String validdate = json["validDate"];
 			data2.add(username);
-			data3.add(haveAcc);
+			data3.add(accType);
 			data4.add(timedAccess);
 			data5.add(validdate);
 		}
 		data.add(dir.fileName());
 		f.close();
 	}
+	size_t len = root.measureLength();
+	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
+	if (buffer) {
+		root.printTo((char *)buffer->get(), len + 1);
+		ws.textAll(buffer);
+	}
+}
+
+void sendTime() {
+	DynamicJsonBuffer jsonBuffer;
+	JsonObject& root = jsonBuffer.createObject();
+	root["command"] = "gettime";
+	root["epoch"] = now();
 	size_t len = root.measureLength();
 	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
 	if (buffer) {
@@ -859,9 +880,11 @@ void printScanResult(int networksFound) {
 	JsonObject& root = jsonBuffer.createObject();
 	root["command"] = "ssidlist";
 	JsonArray& data = root.createNestedArray("ssid");
+	JsonArray& data2 = root.createNestedArray("bssid");
 	for (int i = 0; i < networksFound; ++i) {
 		// Print SSID for each network found
 		data.add(WiFi.SSID(i));
+		data2.add(WiFi.BSSIDstr(i));
 	}
 	size_t len = root.measureLength();
 	AsyncWebSocketMessageBuffer * buffer = ws.makeBuffer(len); //  creates a buffer (len + 1) for you.
@@ -873,21 +896,20 @@ void printScanResult(int networksFound) {
 }
 
 /* ------------------ Date and Time Functions ---------- */
-String getDateTime() {
-	unsigned long epochTime = timeClient.getEpochTime();
-	uint8_t dateMonth = month(epochTime);
-	uint8_t dateDay = day(epochTime);
-	String dateTime =  String(year(epochTime)) + "-";
-	if (dateMonth < 10) dateTime += "0" + String(dateMonth) + "-";
-	else dateTime += String(dateMonth) + "-";
-	if (dateDay < 10) dateTime += "0" + String(dateDay);
-	else dateTime += String(dateDay);
-	dateTime += " " + timeClient.getFormattedTime();
-	return dateTime;
+String getTime() {
+	unsigned long epochTime = now();
+	unsigned long hours = (epochTime % 86400L) / 3600;
+	String hoursStr = hours < 10 ? "0" + String(hours) : String(hours);
+	unsigned long minutes = (epochTime % 3600) / 60;
+	String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
+	unsigned long seconds = epochTime % 60;
+	String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
+
+	return hoursStr + ":" + minuteStr + ":" + secondStr;
 }
 
 String getDate() {
-	unsigned long epochTime = timeClient.getEpochTime();
+	unsigned long epochTime = now();
 	uint8_t dateMonth = month(epochTime);
 	uint8_t dateDay = day(epochTime);
 	String dateTime =  String(year(epochTime)) + "-";
@@ -1095,7 +1117,7 @@ bool listLogsSPIFFS() {
 /* ------------------ Misc Functions ------------------- */
 void turnOnLed(int pin) {
 	switch (pin) {
-		case greedLed:
+		case greenLed:
 			digitalWrite(redLed, LOW);
 			digitalWrite(blueLed, LOW);
 			  break;
@@ -1109,5 +1131,16 @@ void turnOnLed(int pin) {
 			  break;
 		default:
 			break;
+	}
+}
+
+void parseBytes(const char* str, char sep, byte* bytes, int maxBytes, int base) {
+	for (int i = 0; i < maxBytes; i++) {
+		bytes[i] = strtoul(str, NULL, base);// Convert byte
+		str = strchr(str, sep);				// Find next separator
+		if (str == NULL || *str == '\0') {
+			break;							// No more separators, exit
+		}
+		str++;								// Point to next character after separator
 	}
 }

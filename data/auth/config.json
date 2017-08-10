@@ -2,12 +2,20 @@
 	"command":"configfile",
 	"auth_pass": "admin",
 	"wifi_hostname": "ESP-RFID",
+	"sd_ss":"2",
 	"create_log":"0",
+	"rfid_ss":"15",
 	"rfid_gain":"96",
+	"relay_gpio":"5",
+	"relay_type":"1",
 	"relay_time":"200",
 	"ap_ssid": "ESP-RFID",
 	"ap_pass": "RFIDConfig",
 	"sta_ssid": "None",
+	"sta_bssid": "0",
 	"sta_pass": "None",
-	"wifimode": "1"
+	"wifimode": "1",
+	"ntpserver": "europe.pool.ntp.org",
+	"ntpinterval": "10",
+	"timezone": "0"
 }
