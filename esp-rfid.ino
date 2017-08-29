@@ -923,8 +923,8 @@ String getDate() {
 /* ------------------ Logging Functions ---------------- */
 bool createLogSD(String dataString, String filename) {
 	if (!SDAvailable) return false;
-	if (!SD.exists("Data/")) SD.mkdir("Data/");
-	sd::File f = SD.open("Data/" + filename, FILE_WRITE);
+	if (!SD.exists("L/")) SD.mkdir("L/");
+	sd::File f = SD.open("L/" + filename, FILE_WRITE);
 	if (f) {
 		f.println(dataString);
 		f.close();
@@ -939,7 +939,7 @@ bool createLogSD(String dataString, String filename) {
 
 bool readLogSD(String filename) {
 	if (!SDAvailable) return false;
-	sd::File f = SD.open("Data/" + filename);
+	sd::File f = SD.open("L/" + filename);
 	if (!f) {
 		Serial.print(F("[ WARN ] Error reading file on SD card: "));
 		Serial.println(filename);
@@ -980,8 +980,8 @@ bool readLogSD(String filename) {
 
 bool deleteLogSD(String filename) {
 	if (!SDAvailable) return false;
-	if (!SD.exists("Data/" + filename)) return true;
-	if (SD.remove("Data/" + filename)) return true;
+	if (!SD.exists("L/" + filename)) return true;
+	if (SD.remove("L/" + filename)) return true;
 	else {
 		Serial.print(F("[ WARN ] Error removing file from SD card: "));
 		Serial.println(filename);
@@ -999,7 +999,7 @@ bool listLogsSD() {
 	JsonArray& data = jsonroot.createNestedArray("date");
 
 	sd::File root;
-	root = SD.open("Data/");
+	root = SD.open("L/");
 	while (true) {
 		sd::File entry = root.openNextFile();
 		if (! entry) {
@@ -1027,8 +1027,8 @@ bool readUserLogSD(String UID) {
 
 bool createLogSPIFFS(String dataString, String filename) {
 	fs::File f;
-	if (SPIFFS.exists("Data/" + filename)) f = SPIFFS.open("Data/" + filename, "r+");
-	else f = SPIFFS.open("Data/" + filename,"w+");
+	if (SPIFFS.exists("/L/" + filename)) f = SPIFFS.open("/L/" + filename, "r+");
+	else f = SPIFFS.open("/L/" + filename,"w+");
 	if (f) {
 		f.seek(0,SeekEnd);
 		f.println(dataString);
@@ -1043,7 +1043,7 @@ bool createLogSPIFFS(String dataString, String filename) {
 }
 
 bool readLogSPIFFS(String filename) {
-	fs::File f = SPIFFS.open("Data/" + filename, "r");
+	fs::File f = SPIFFS.open("/L/" + filename, "r");
 	if (!f) {
 		Serial.print(F("[ WARN ] Error reading file on SPIFFS: "));
 		Serial.println(filename);
@@ -1083,8 +1083,8 @@ bool readLogSPIFFS(String filename) {
 }
 
 bool deleteLogSPIFFS(String filename) {
-	if (!SPIFFS.exists("Data/" + filename)) return true;
-	if (SPIFFS.remove("Data/" + filename)) return true;
+	if (!SPIFFS.exists("/L/" + filename)) return true;
+	if (SPIFFS.remove("/L/" + filename)) return true;
 	else {
 		Serial.print(F("[ WARN ] Error removing file from SPIFFS: "));
 		Serial.println(filename);
@@ -1099,9 +1099,9 @@ bool listLogsSPIFFS() {
 
 	JsonArray& data = jsonroot.createNestedArray("date");
 
-	Dir dir = SPIFFS.openDir("Data/");
+	Dir dir = SPIFFS.openDir("/L/");
 	while (dir.next()) {
-		data.add((String)dir.fileName().substring(5));
+		data.add((String)dir.fileName().substring(3));
 	}
 
 	size_t len = jsonroot.measureLength();

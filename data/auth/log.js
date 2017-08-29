@@ -76,7 +76,7 @@ function getlog() {
 
 function removeLog() {
 	var ref = document.getElementById("datelist");
-	var x = confirm("This will remove all log entries from: " + ref.innerHTML + ". Are you sure?");
+	var x = confirm("This will remove all log entries from: " + ref.value.substr(0,4) + "-" + ref.value.substr(4,2) + "-" + ref.value.substr(6,2) + ". Are you sure?");
 	if (x) {
 		var datatosend = {};
 		datatosend.command = "remlog";
