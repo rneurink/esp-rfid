@@ -1,12 +1,11 @@
 /* ------------------ RFID ESP Door lock ---------------
    
    wiring the MFRC522 to ESP8266 (ESP-12)
-	RST	 = GPIO5
-	SDA(SS) = GPIO4 
+	SDA(SS) = GPIO15
 	MOSI	= GPIO13
 	MISO	= GPIO12
-	SCK	 = GPIO14
-	GND	 = GND
+	SCK	 	= GPIO14
+	GND	 	= GND
 	3.3V	= 3.3V
    ----------------------------------------------------- */
 
@@ -45,9 +44,6 @@ AsyncWebSocket ws("/ws");
 AsyncEventSource events("/events");
 
 DNSServer dnsServer;
-
-// Create UDP instance for NTP Client
-WiFiUDP ntpUDP;
 
 /* ------------------ Variables ------------------------ */
 String admin_pass;
